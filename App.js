@@ -1,20 +1,23 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import {StatusBar} from 'expo-status-bar';
+import {PaperProvider} from 'react-native-paper';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
+import {AppNavigator} from './src/navigation/AppNavigator';
+import {useUIStore} from './src/store/uiStore';
+import {lightTheme, darkTheme} from './src/constants/theme';
 
 export default function App() {
+  const {theme} = useUIStore();
+  const isDark = theme === 'dark';
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <PaperProvider theme={isDark ? darkTheme : lightTheme}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <AppNavigator />
+        <Toast />
+      </PaperProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
