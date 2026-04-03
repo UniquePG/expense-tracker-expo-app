@@ -1,50 +1,23 @@
 import React from 'react';
-import {View, StyleSheet, TextInput} from 'react-native';
-import {Text, useTheme, HelperText} from 'react-native-paper';
-import {formatCurrency, parseCurrencyInput} from '../../utils/formatCurrency';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { colors } from '../../constants/colors';
 
-export const CurrencyInput = ({
-  label,
-  value,
-  onChange,
-  currency = 'USD',
-  error,
-  style,
-  placeholder = '0.00',
-}) => {
-  const theme = useTheme();
-
-  const handleChange = text => {
-    const parsed = parseCurrencyInput(text);
-    onChange(parsed);
-  };
-
+const CurrencyInput = ({ label, value, onChangeText, currency = 'USD', error }) => {
   return (
-    <View style={[styles.container, style]}>
-      {label && (
-        <Text style={[styles.label, {color: theme.colors.text}]}>{label}</Text>
-      )}
-      <View
-        style={[
-          styles.inputContainer,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: error ? theme.colors.error : theme.colors.border,
-          },
-        ]}>
-        <Text style={[styles.currencySymbol, {color: theme.colors.primary}]}>
-          {formatCurrency(0, currency, {showDecimals: false}).replace('0', '')}
-        </Text>
+    <View style={styles.container}>
+      {label && <Text style={styles.label}>{label}</Text>}
+      <View style={[styles.inputContainer, error && styles.errorBorder]}>
+        <Text style={styles.currencySymbol}>{currency}</Text>
         <TextInput
-          value={value ? value.toString() : ''}
-          onChangeText={handleChange}
-          placeholder={placeholder}
-          placeholderTextColor={theme.colors.placeholder}
-          keyboardType="decimal-pad"
-          style={[styles.input, {color: theme.colors.text}]}
+          style={styles.input}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType="numeric"
+          placeholder="0.00"
+          placeholderTextColor={colors.textSecondary}
         />
       </View>
-      {error && <HelperText type="error">{error}</HelperText>}
+      {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 };
@@ -52,28 +25,44 @@ export const CurrencyInput = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
+    width: '100%',
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 48,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 52,
+    backgroundColor: colors.surface,
   },
   currencySymbol: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginRight: 4,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginRight: 8,
   },
   input: {
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
+    color: colors.text,
+  },
+  errorBorder: {
+    borderColor: colors.error,
+  },
+  errorText: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: 4,
   },
 });
+
+export default CurrencyInput;

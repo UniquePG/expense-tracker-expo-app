@@ -1,29 +1,20 @@
-import {Alert, Platform} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Alert } from 'react-native';
 
-export const requestCameraPermission = async () => {
-  if (Platform.OS !== 'web') {
-    const {status} = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Sorry, we need camera permissions to make this work!');
-      return false;
-    }
+export const requestCameraPermissions = async () => {
+  const { status } = await ImagePicker.requestCameraPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Permission Denied', 'We need camera permissions to scan receipts.');
+    return false;
   }
   return true;
 };
 
-export const requestMediaLibraryPermission = async () => {
-  if (Platform.OS !== 'web') {
-    const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Sorry, we need camera roll permissions to make this work!');
-      return false;
-    }
+export const requestMediaLibraryPermissions = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Permission Denied', 'We need gallery permissions to upload images.');
+    return false;
   }
-  return true;
-};
-
-export const requestNotificationPermission = async () => {
-  // Expo Notifications permissions if needed
   return true;
 };

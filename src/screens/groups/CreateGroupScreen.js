@@ -1,250 +1,254 @@
-import React, {useState} from 'react';
-import {
-  View,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import {Text, useTheme, Snackbar, Chip} from 'react-native-paper';
-import {useForm, Controller} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {groupSchema} from '../../utils/validationSchemas';
-import {useGroups} from '../../hooks/useGroups';
-import {useFriends} from '../../hooks/useFriends';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {InputField} from '../../components/inputs/InputField';
-import {SelectField} from '../../components/inputs/SelectField';
-import {Button} from '../../components/buttons/Button';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
-import {Avatar} from '../../components/ui/Avatar';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Button from '../../components/buttons/Button';
+import InputField from '../../components/inputs/InputField';
+import Avatar from '../../components/ui/Avatar';
+import ImagePickerField from '../../components/ui/ImagePickerField';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { colors } from '../../constants/colors';
+import { useFriends } from '../../hooks/useFriends';
+import { useGroups } from '../../hooks/useGroups';
+;
 
-export const CreateGroupScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {createGroup} = useGroups();
-  const {friends} = useFriends({autoFetch: true});
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedMembers, setSelectedMembers] = useState([]);
-
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm({
-    resolver: zodResolver(groupSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-    },
+const CreateGroupScreen = ({ navigation }) => {
+  const { createGroup, isLoading } = useGroups();
+  const { friends, fetchFriends } = useFriends();
+  const [form, setForm] = useState({
+    name: '',
+    type: 'TRIP',
+    members: [],
+    avatar: null,
   });
 
-  const toggleMember = (friendId) => {
-    setSelectedMembers(prev => 
-      prev.includes(friendId)
-        ? prev.filter(id => id !== friendId)
-        : [...prev, friendId]
-    );
-  };
+  useEffect(() => {
+    fetchFriends();
+  }, []);
 
-  const onSubmit = async (data) => {
-    if (selectedMembers.length === 0) {
-      setError('Please select at least one member');
+  const groupTypes = [
+    { id: 'TRIP', label: 'Trip', icon: 'airplane' },
+    { id: 'HOME', label: 'Home', icon: 'home' },
+    { id: 'COUPLE', label: 'Couple', icon: 'heart' },
+    { id: 'OTHER', label: 'Other', icon: 'dots-horizontal' },
+  ];
+
+  const handleCreate = async () => {
+    if (!form.name) {
+      Alert.alert('Error', 'Please enter a group name');
       return;
     }
 
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const groupData = {
-        ...data,
-        members: selectedMembers,
-      };
-
-      await createGroup(groupData);
+      await createGroup(form);
       navigation.goBack();
-    } catch (err) {
-      setError(err.message || 'Failed to create group');
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to create group');
     }
   };
 
+  const toggleMember = (friendId) => {
+    setForm(prev => {
+      const isSelected = prev.members.includes(friendId);
+      if (isSelected) {
+        return { ...prev, members: prev.members.filter(id => id !== friendId) };
+      } else {
+        return { ...prev, members: [...prev.members, friendId] };
+      }
+    });
+  };
+
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Create Group"
-        onBack={() => navigation.goBack()}
-      />
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name="close" size={28} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Group</Text>
+        <TouchableOpacity onPress={handleCreate} disabled={isLoading}>
+          <Text style={styles.doneBtn}>Done</Text>
+        </TouchableOpacity>
+      </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          
-          <Controller
-            control={control}
-            name="name"
-            render={({field: {onChange, value}}) => (
-              <InputField
-                label="Group Name"
-                placeholder="e.g., Weekend Trip, Apartment, etc."
-                value={value}
-                onChangeText={onChange}
-                leftIcon="account-group"
-                error={errors.name?.message}
-              />
-            )}
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={styles.imageSection}>
+          <ImagePickerField 
+            value={form.avatar}
+            onChange={(uri) => setForm({...form, avatar: uri})}
           />
-
-          <Controller
-            control={control}
-            name="description"
-            render={({field: {onChange, value}}) => (
-              <InputField
-                label="Description (Optional)"
-                placeholder="What's this group for?"
-                value={value}
-                onChangeText={onChange}
-                leftIcon="text"
-                multiline
-                numberOfLines={2}
-                error={errors.description?.message}
-              />
-            )}
-          />
-
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Select Members
-          </Text>
-          
-          <Text style={[styles.sectionSubtitle, {color: theme.colors.textSecondary}]}>
-            Choose friends to add to this group
-          </Text>
-
-          <View style={styles.membersList}>
-            {friends.map(friend => {
-              const isSelected = selectedMembers.includes(friend.id);
-              return (
-                <TouchableOpacity
-                  key={friend.id}
-                  style={[
-                    styles.memberItem,
-                    isSelected && {backgroundColor: theme.colors.primaryLight}
-                  ]}
-                  onPress={() => toggleMember(friend.id)}>
-                  <Avatar
-                    source={friend.avatar ? {uri: friend.avatar} : null}
-                    firstName={friend.firstName}
-                    lastName={friend.lastName}
-                    size={40}
-                  />
-                  <View style={styles.memberInfo}>
-                    <Text style={[styles.memberName, {color: theme.colors.text}]}>
-                      {friend.firstName} {friend.lastName}
-                    </Text>
-                    <Text style={[styles.memberEmail, {color: theme.colors.textSecondary}]}>
-                      {friend.email}
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <Icon name="check-circle" size={24} color={theme.colors.primary} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+          <View style={styles.nameInputContainer}>
+            <Text style={styles.label}>Group Name</Text>
+            <InputField 
+              placeholder="e.g. Summer Trip 2024" 
+              value={form.name} 
+              onChangeText={(t) => setForm({...form, name: t})} 
+            />
           </View>
+        </View>
 
-          {friends.length === 0 && (
-            <View style={styles.noFriends}>
-              <Text style={{color: theme.colors.textSecondary, textAlign: 'center'}}>
-                You don't have any friends yet. Add friends first to create a group.
+        <Text style={styles.sectionTitle}>Group Type</Text>
+        <View style={styles.typeGrid}>
+          {groupTypes.map((type) => (
+            <TouchableOpacity 
+              key={type.id} 
+              style={[
+                styles.typeCard, 
+                form.type === type.id && styles.activeTypeCard
+              ]}
+              onPress={() => setForm({...form, type: type.id})}
+            >
+              <Icon 
+                name={type.icon} 
+                size={24} 
+                color={form.type === type.id ? colors.white : colors.primary} 
+              />
+              <Text style={[
+                styles.typeLabel,
+                form.type === type.id && styles.activeTypeLabel
+              ]}>
+                {type.label}
               </Text>
-              <Button
-                mode="outlined"
-                onPress={() => navigation.navigate('AddFriend')}
-                style={styles.addFriendButton}>
-                Add Friends
-              </Button>
-            </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.sectionTitle}>Select Members</Text>
+        <View style={styles.memberList}>
+          {friends.map((friend) => (
+            <TouchableOpacity 
+              key={friend.id} 
+              style={styles.memberItem}
+              onPress={() => toggleMember(friend.id)}
+            >
+              <Avatar source={friend.avatar} name={friend.name} size={40} radius={12} />
+              <Text style={styles.memberName}>{friend.name}</Text>
+              <Icon 
+                name={form.members.includes(friend.id) ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} 
+                size={24} 
+                color={form.members.includes(friend.id) ? colors.primary : colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          ))}
+          {friends.length === 0 && (
+            <Text style={styles.emptyText}>No friends to add. Add friends first!</Text>
           )}
+        </View>
 
-          <Button
-            title="Create Group"
-            onPress={handleSubmit(onSubmit)}
-            loading={isLoading}
-            disabled={isLoading || friends.length === 0}
-            style={styles.createButton}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <LoadingOverlay visible={isLoading} message="Creating group..." />
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={3000}
-        action={{label: 'Dismiss', onPress: () => setError(null)}}>
-        {error}
-      </Snackbar>
-    </ScreenWrapper>
+        <Button 
+          title="Create Group" 
+          style={styles.createBtn} 
+          onPress={handleCreate} 
+          loading={isLoading}
+        />
+      </ScrollView>
+      <LoadingOverlay visible={isLoading} />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  doneBtn: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  content: {
+    padding: 24,
+  },
+  imageSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  nameInputContainer: {
+    flex: 1,
+    marginLeft: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 24,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 16,
+    marginTop: 8,
   },
-  membersList: {
-    marginBottom: 24,
+  typeGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+  },
+  typeCard: {
+    width: '23%',
+    height: 80,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  activeTypeCard: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  typeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 8,
+  },
+  activeTypeLabel: {
+    color: colors.white,
+  },
+  memberList: {
+    marginBottom: 40,
   },
   memberItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 16,
+    backgroundColor: colors.white,
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#F5F5F5',
-  },
-  memberInfo: {
-    marginLeft: 12,
-    flex: 1,
+    borderRadius: 16,
   },
   memberName: {
-    fontSize: 14,
-    fontWeight: '500',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginLeft: 12,
   },
-  memberEmail: {
-    fontSize: 12,
-    marginTop: 2,
+  emptyText: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    marginTop: 20,
   },
-  noFriends: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  addFriendButton: {
-    marginTop: 16,
-  },
-  createButton: {
-    marginTop: 8,
+  createBtn: {
+    height: 60,
+    borderRadius: 30,
+    marginBottom: 60,
   },
 });
+
+export default CreateGroupScreen;

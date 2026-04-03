@@ -1,75 +1,49 @@
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export const expensesApi = {
-  getExpenses: async (params = {}) => {
-    const {page = 1, limit = 20, groupId, friendId, startDate, endDate, category} = params;
-    const response = await axiosClient.get(API_ENDPOINTS.EXPENSES.LIST, {
-      params: {page, limit, groupId, friendId, startDate, endDate, category},
+  create: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.EXPENSES.BASE, data);
+    return response;
+  },
+  getAll: async (params) => {
+    const response = await axiosClient.get(ENDPOINTS.EXPENSES.BASE, { params });
+    return response;
+  },
+  getSummary: async () => {
+    const response = await axiosClient.get(ENDPOINTS.EXPENSES.SUMMARY);
+    return response;
+  },
+  getById: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.EXPENSES.ID(id));
+    return response;
+  },
+  update: async (id, data) => {
+    const response = await axiosClient.put(ENDPOINTS.EXPENSES.ID(id), data);
+    return response;
+  },
+  delete: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.EXPENSES.ID(id));
+    return response;
+  },
+  uploadReceipt: async (id, formData) => {
+    const response = await axiosClient.post(ENDPOINTS.EXPENSES.RECEIPT(id), formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data;
+    return response;
   },
-
-  createExpense: async expenseData => {
-    const response = await axiosClient.post(API_ENDPOINTS.EXPENSES.CREATE, expenseData);
-    return response.data;
+  deleteImage: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.EXPENSES.IMAGE(id));
+    return response;
   },
-
-  getExpenseDetails: async expenseId => {
-    const response = await axiosClient.get(API_ENDPOINTS.EXPENSES.DETAIL(expenseId));
-    return response.data;
+  getComments: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.EXPENSES.COMMENTS(id));
+    return response;
   },
-
-  updateExpense: async (expenseId, expenseData) => {
-    const response = await axiosClient.put(
-      API_ENDPOINTS.EXPENSES.UPDATE(expenseId),
-      expenseData,
-    );
-    return response.data;
-  },
-
-  deleteExpense: async expenseId => {
-    const response = await axiosClient.delete(API_ENDPOINTS.EXPENSES.DELETE(expenseId));
-    return response.data;
-  },
-
-  uploadReceipt: async (expenseId, imageFile) => {
-    const formData = new FormData();
-    formData.append('receipt', {
-      uri: imageFile.uri,
-      type: imageFile.type,
-      name: imageFile.fileName || 'receipt.jpg',
-    });
-
-    const response = await axiosClient.post(
-      API_ENDPOINTS.EXPENSES.UPLOAD_RECEIPT(expenseId),
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      },
-    );
-    return response.data;
-  },
-
-  updateSplit: async (expenseId, splitData) => {
-    const response = await axiosClient.put(
-      API_ENDPOINTS.EXPENSES.SPLIT(expenseId),
-      splitData,
-    );
-    return response.data;
-  },
-
-  getComments: async expenseId => {
-    const response = await axiosClient.get(API_ENDPOINTS.EXPENSES.COMMENTS(expenseId));
-    return response.data;
-  },
-
-  addComment: async (expenseId, text) => {
-    const response = await axiosClient.post(API_ENDPOINTS.EXPENSES.COMMENTS(expenseId), {
-      text,
-    });
-    return response.data;
+  addComment: async (id, text) => {
+    const response = await axiosClient.post(ENDPOINTS.EXPENSES.COMMENTS(id), { text });
+    return response;
   },
 };
+
+export default expensesApi;

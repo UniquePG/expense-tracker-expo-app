@@ -1,87 +1,124 @@
-const BASE_URL = '/api/v1';
+import Constants from 'expo-constants';
 
-export const API_ENDPOINTS = {
+// Automatically resolve the backend IP from Expo's dev server host.
+// When running via `expo start`, hostUri looks like "192.168.x.x:8081"
+// so we strip the port and attach our backend port instead.
+const getBaseUrl = () => {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (__DEV__ && hostUri) {
+    const ip = hostUri.split(':')[0]; // grab just the IP part
+    return `http://${ip}:4000/api/v1`;
+  }
+  // Fallback for production builds — replace with your actual production URL
+  return 'https://your-production-api.com/api/v1';
+};
+
+export const API_BASE_URL = getBaseUrl();
+
+export const ENDPOINTS = {
   AUTH: {
-    LOGIN: `${BASE_URL}/auth/login`,
-    REGISTER: `${BASE_URL}/auth/register`,
-    LOGOUT: `${BASE_URL}/auth/logout`,
-    REFRESH_TOKEN: `${BASE_URL}/auth/refresh`,
-    FORGOT_PASSWORD: `${BASE_URL}/auth/forgot-password`,
-    RESET_PASSWORD: `${BASE_URL}/auth/reset-password`,
-    VERIFY_EMAIL: `${BASE_URL}/auth/verify-email`,
+    REGISTER: '/auth/register',
+    LOGIN: '/auth/login',
+    REFRESH: '/auth/refresh',
+    LOGOUT: '/auth/logout',
+    CHANGE_PASSWORD: '/auth/change-password',
+    FORGOT_PASSWORD: '/auth/forgot-password',
+    RESET_PASSWORD: '/auth/reset-password',
+    LOGOUT_ALL: '/auth/logout-all',
   },
   USERS: {
-    ME: `${BASE_URL}/users/me`,
-    UPDATE: `${BASE_URL}/users/me`,
-    CHANGE_PASSWORD: `${BASE_URL}/users/change-password`,
-    UPLOAD_AVATAR: `${BASE_URL}/users/avatar`,
-    DELETE_ACCOUNT: `${BASE_URL}/users/me`,
-    SEARCH: `${BASE_URL}/users/search`,
+    ME: '/users/me',
+    AVATAR: '/users/avatar',
+    SEARCH: '/users/search',
+    ID: (id) => `/users/${id}`,
   },
-  FRIENDS: {
-    LIST: `${BASE_URL}/friends`,
-    REQUESTS: `${BASE_URL}/friends/requests`,
-    SEND_REQUEST: `${BASE_URL}/friends/request`,
-    ACCEPT_REQUEST: (id) => `${BASE_URL}/friends/requests/${id}/accept`,
-    REJECT_REQUEST: (id) => `${BASE_URL}/friends/requests/${id}/reject`,
-    REMOVE: (id) => `${BASE_URL}/friends/${id}`,
-    BALANCES: `${BASE_URL}/friends/balances`,
-  },
-  GROUPS: {
-    LIST: `${BASE_URL}/groups`,
-    CREATE: `${BASE_URL}/groups`,
-    DETAIL: (id) => `${BASE_URL}/groups/${id}`,
-    UPDATE: (id) => `${BASE_URL}/groups/${id}`,
-    DELETE: (id) => `${BASE_URL}/groups/${id}`,
-    MEMBERS: (id) => `${BASE_URL}/groups/${id}/members`,
-    ADD_MEMBER: (id) => `${BASE_URL}/groups/${id}/members`,
-    REMOVE_MEMBER: (groupId, userId) => `${BASE_URL}/groups/${groupId}/members/${userId}`,
-    EXPENSES: (id) => `${BASE_URL}/groups/${id}/expenses`,
-    SETTLE: (id) => `${BASE_URL}/groups/${id}/settle`,
-  },
-  EXPENSES: {
-    LIST: `${BASE_URL}/expenses`,
-    CREATE: `${BASE_URL}/expenses`,
-    DETAIL: (id) => `${BASE_URL}/expenses/${id}`,
-    UPDATE: (id) => `${BASE_URL}/expenses/${id}`,
-    DELETE: (id) => `${BASE_URL}/expenses/${id}`,
-    UPLOAD_RECEIPT: (id) => `${BASE_URL}/expenses/${id}/receipt`,
-    SPLIT: (id) => `${BASE_URL}/expenses/${id}/split`,
-    COMMENTS: (id) => `${BASE_URL}/expenses/${id}/comments`,
-  },
-  SETTLEMENTS: {
-    LIST: `${BASE_URL}/settlements`,
-    CREATE: `${BASE_URL}/settlements`,
-    DETAIL: (id) => `${BASE_URL}/settlements/${id}`,
-    UPDATE: (id) => `${BASE_URL}/settlements/${id}`,
-    DELETE: (id) => `${BASE_URL}/settlements/${id}`,
-  },
-  TRANSACTIONS: {
-    LIST: `${BASE_URL}/transactions`,
-    CREATE: `${BASE_URL}/transactions`,
-    DETAIL: (id) => `${BASE_URL}/transactions/${id}`,
-    UPDATE: (id) => `${BASE_URL}/transactions/${id}`,
-    DELETE: (id) => `${BASE_URL}/transactions/${id}`,
-    CATEGORIES: `${BASE_URL}/transactions/categories`,
-  },
-  NOTIFICATIONS: {
-    LIST: `${BASE_URL}/notifications`,
-    MARK_READ: (id) => `${BASE_URL}/notifications/${id}/read`,
-    MARK_ALL_READ: `${BASE_URL}/notifications/read-all`,
-    DELETE: (id) => `${BASE_URL}/notifications/${id}`,
-    SETTINGS: `${BASE_URL}/notifications/settings`,
-  },
-  ANALYTICS: {
-    DASHBOARD: `${BASE_URL}/analytics/dashboard`,
-    SPENDING_BY_CATEGORY: `${BASE_URL}/analytics/spending-by-category`,
-    INCOME_VS_EXPENSE: `${BASE_URL}/analytics/income-vs-expense`,
-    MONTHLY_TRENDS: `${BASE_URL}/analytics/monthly-trends`,
-    FRIEND_BALANCES: `${BASE_URL}/analytics/friend-balances`,
+  ACCOUNTS: {
+    BASE: '/accounts',
+    TOTAL: '/accounts/balance/total',
+    ID: (id) => `/accounts/${id}`,
+    BALANCE: (id) => `/accounts/${id}/balance`,
   },
   CATEGORIES: {
-    LIST: `${BASE_URL}/categories`,
-    CREATE: `${BASE_URL}/categories`,
-    UPDATE: (id) => `${BASE_URL}/categories/${id}`,
-    DELETE: (id) => `${BASE_URL}/categories/${id}`,
+    BASE: '/categories',
+    ID: (id) => `/categories/${id}`,
+  },
+  FRIENDS: {
+    BASE: '/friends',
+    REQUEST: '/friends/request',
+    REQUESTS: '/friends/requests',
+    BALANCES: '/friends/balances',
+    PENDING: '/friends/pending',
+    SENT: '/friends/sent',
+    ACCEPT: (id) => `/friends/requests/${id}/accept`,
+    REJECT: (id) => `/friends/requests/${id}/reject`,
+    DETAILS: (id) => `/friends/${id}`,
+  },
+  CONTACTS: {
+    BASE: '/contacts',
+    SEARCH: '/contacts/search',
+    ID: (id) => `/contacts/${id}`,
+    LINK: (id) => `/contacts/${id}/link`,
+  },
+  EXPENSES: {
+    BASE: '/expenses',
+    SUMMARY: '/expenses/summary',
+    ID: (id) => `/expenses/${id}`,
+    RECEIPT: (id) => `/expenses/${id}/receipt`,
+    IMAGE: (id) => `/expenses/${id}/image`,
+    COMMENTS: (id) => `/expenses/${id}/comments`,
+  },
+  SPLITS: {
+    BALANCES: '/splits/balances',
+    SIMPLIFIED: '/splits/balances/simplified',
+    GROUP: (id) => `/splits/group/${id}`,
+    EXPENSE: (id) => `/splits/expense/${id}`,
+  },
+  SETTLEMENTS: {
+    BASE: '/settlements',
+    ID: (id) => `/settlements/${id}`,
+    CONFIRM: (id) => `/settlements/${id}/confirm`,
+    REMIND: (id) => `/settlements/${id}/remind`,
+  },
+  GROUPS: {
+    BASE: '/groups',
+    ID: (id) => `/groups/${id}`,
+    MEMBERS: (id) => `/groups/${id}/members`,
+    EXPENSES: (id) => `/groups/${id}/expenses`,
+    BALANCES: (id) => `/groups/${id}/balances`,
+    SETTLE: (id) => `/groups/${id}/settle`,
+    IMAGE: (id) => `/groups/${id}/image`,
+  },
+  TRANSACTIONS: {
+    BASE: '/transactions',
+    INCOME: '/transactions/income',
+    EXPENSE: '/transactions/expense',
+    TRANSFER: '/transactions/transfer',
+    ID: (id) => `/transactions/${id}`,
+  },
+  NOTIFICATIONS: {
+    BASE: '/notifications',
+    UNREAD: '/notifications/unread-count',
+    MARK_READ: '/notifications/mark-read',
+    ID_READ: (id) => `/notifications/${id}/read`,
+    READ_ALL: '/notifications/read-all',
+    ID: (id) => `/notifications/${id}`,
+    SETTINGS: '/notifications/settings',
+  },
+  INVITES: {
+    BASE: '/invites',
+    PENDING: '/invites/pending',
+  },
+  ANALYTICS: {
+    DASHBOARD: '/analytics/dashboard',
+    CATEGORY: '/analytics/spending-by-category',
+    TRENDS: '/analytics/monthly-trends',
+    INCOME_VS_EXPENSE: '/analytics/income-vs-expense',
+    FRIEND_BALANCES: '/analytics/friend-balances',
+  },
+  DASHBOARD: {
+    BASE: '/dashboard',
+    STATS: '/dashboard/stats',
+    TRENDS: '/dashboard/trends',
+    FRIEND_BALANCES: '/dashboard/friend-balances',
   },
 };

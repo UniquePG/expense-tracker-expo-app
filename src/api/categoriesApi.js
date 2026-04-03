@@ -1,34 +1,23 @@
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export const categoriesApi = {
-  getCategories: async (type) => {
-    const response = await axiosClient.get(API_ENDPOINTS.CATEGORIES.LIST, {
-      params: {type},
-    });
-    return response.data;
+  create: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.CATEGORIES.BASE, data);
+    return response;
   },
-
-  createCategory: async categoryData => {
-    const response = await axiosClient.post(
-      API_ENDPOINTS.CATEGORIES.CREATE,
-      categoryData,
-    );
-    return response.data;
+  getAll: async () => {
+    const response = await axiosClient.get(ENDPOINTS.CATEGORIES.BASE);
+    return response;
   },
-
-  updateCategory: async (categoryId, categoryData) => {
-    const response = await axiosClient.put(
-      API_ENDPOINTS.CATEGORIES.UPDATE(categoryId),
-      categoryData,
-    );
-    return response.data;
+  update: async (id, data) => {
+    const response = await axiosClient.put(ENDPOINTS.CATEGORIES.ID(id), data);
+    return response;
   },
-
-  deleteCategory: async categoryId => {
-    const response = await axiosClient.delete(
-      API_ENDPOINTS.CATEGORIES.DELETE(categoryId),
-    );
-    return response.data;
+  delete: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.CATEGORIES.ID(id));
+    return response;
   },
 };
+
+export default categoriesApi;

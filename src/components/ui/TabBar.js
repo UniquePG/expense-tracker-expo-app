@@ -1,30 +1,20 @@
 import React from 'react';
-import {View, TouchableOpacity, StyleSheet} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { colors } from '../../constants/colors';
 
-export const TabBar = ({tabs, activeTab, onChange, style}) => {
-  const theme = useTheme();
-
+const TabBar = ({ tabs, activeTab, onTabPress, style }) => {
+console.log('tabs, activeTab, onTabPress, style :', tabs, activeTab, onTabPress, style);
   return (
     <View style={[styles.container, style]}>
-      {tabs.map((tab, index) => {
-        const isActive = activeTab === tab.key;
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.value;
         return (
           <TouchableOpacity
-            key={tab.key}
-            onPress={() => onChange(tab.key)}
-            style={[
-              styles.tab,
-              isActive && {borderBottomColor: theme.colors.primary},
-            ]}>
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color: isActive ? theme.colors.primary : theme.colors.textSecondary,
-                  fontWeight: isActive ? '600' : '400',
-                },
-              ]}>
+            key={tab.value}
+            style={[styles.tab, isActive && styles.activeTab]}
+            onPress={() => onTabPress(tab.value)}
+          >
+            <Text style={[styles.tabText, isActive && styles.activeTabText]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -37,17 +27,28 @@ export const TabBar = ({tabs, activeTab, onChange, style}) => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.border,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
+  activeTab: {
+    borderBottomColor: colors.primary,
+  },
   tabText: {
     fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  activeTabText: {
+    color: colors.primary,
   },
 });
+
+export default TabBar;

@@ -1,69 +1,58 @@
-import {useEffect, useCallback} from 'react';
-import {useAuthStore} from '../store/authStore';
-import {useUserStore} from '../store/userStore';
+import { useAuthStore } from '../store/authStore';
+import { authApi } from '../api';
+import Toast from 'react-native-toast-message';
 
 export const useAuth = () => {
-  const {
-    user,
-    isAuthenticated,
-    isLoading,
-    error,
-    login,
-    register,
-    logout,
-    loadUser,
-    clearError,
-  } = useAuthStore();
+  const { user, accessToken, setAuth, logout: clearAuth } = useAuthStore();
 
-  const {fetchProfile} = useUserStore();
-
-  useEffect(() => {
-    loadUser();
-  }, []);
-
-  useEffect(() => {
-    // console.log('isAuthenticated :', isAuthenticated);
-    // console.log('user :', user);
-    if (isAuthenticated && !user) {
-      fetchProfile();
-    }
-  }, [isAuthenticated, user]);
-
-  const handleLogin = useCallback(async (email, password) => {
+  const login = async (credentials) => {
     try {
-      await login(email, password);
-      return {success: true};
+      const response = await authApi.login(credentials);
+      const { user, accessToken, refreshToken } = response.data;
+      await setAuth(user, accessToken, refreshToken);
+      Toast.show({ type: 'success', text1: 'Login Successful' });
+      return response.data;
     } catch (error) {
-      return {success: false, error: error.message};
+      Toast.show({ type: 'error', text1: 'Login Failed', text2: error.response?.data?.message });
+      throw error;
     }
-  }, [login]);
+  };
 
-  const handleRegister = useCallback(async userData => {
+  const register = async (data) => {
     try {
-      await register(userData);
-      return {success: true};
+      const response = await authApi.register(data);
+      const { user, accessToken, refreshToken } = response.data;
+      await setAuth(user, accessToken, refreshToken);
+      Toast.show({ type: 'success', text1: 'Registration Successful' });
+      return response.data;
     } catch (error) {
-      return {success: false, error: error.message};
+      Toast.show({ type: 'error', text1: 'Registration Failed', text2: error.response?.data?.message });
+      throw error;
     }
-  }, [register]);
+  };
 
-  const handleLogout = useCallback(async () => {
+  const logout = async () => {
     try {
-      await logout();
-      return {success: true};
+      const refreshToken = await useAuthStore.getState().refreshToken;
+      if (refreshToken) {
+        await authApi.logout(refreshToken);
+      }
     } catch (error) {
-      return {success: false, error: error.message};
+      console.error('Logout API failed', error);
+    } finally {
+      await clearAuth();
+      Toast.show({ type: 'info', text1: 'Logged Out' });
     }
-  }, [logout]);
+  };
 
   return {
     user,
-    isAuthenticated,
-    isLoading,
-    error,
-    login: handleLogin,
-    register: handleRegister,
-    logout: handleLogout,
-    clearError,
+    accessToken,
+    isAuthenticated: !!accessToken,
+    login,
+    register,
+    logout,
   };
 };
+
+export default useAuth;

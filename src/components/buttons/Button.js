@@ -1,105 +1,39 @@
 import React from 'react';
-import {TouchableOpacity, StyleSheet, ActivityIndicator} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
+import { StyleSheet } from 'react-native';
+import { Button as PaperButton } from 'react-native-paper';
+import { colors } from '../../constants/colors';
 
-export const Button = ({
-  title,
-  onPress,
-  variant = 'primary',
-  size = 'medium',
-  disabled = false,
-  loading = false,
-  style,
-  textStyle,
-  icon: Icon,
-}) => {
-  const theme = useTheme();
-
-  const getBackgroundColor = () => {
-    if (disabled) return theme.colors.textDisabled;
-    switch (variant) {
-      case 'primary':
-        return theme.colors.primary;
-      case 'secondary':
-        return theme.colors.secondary;
-      case 'outline':
-        return 'transparent';
-      case 'ghost':
-        return 'transparent';
-      case 'danger':
-        return theme.colors.error;
-      default:
-        return theme.colors.primary;
-    }
-  };
-
-  const getTextColor = () => {
-    if (variant === 'outline' || variant === 'ghost') {
-      return disabled ? theme.colors.textDisabled : theme.colors.primary;
-    }
-    return '#FFFFFF';
-  };
-
-  const getSizeStyles = () => {
-    switch (size) {
-      case 'small':
-        return {paddingVertical: 8, paddingHorizontal: 16};
-      case 'large':
-        return {paddingVertical: 16, paddingHorizontal: 32};
-      default:
-        return {paddingVertical: 12, paddingHorizontal: 24};
-    }
-  };
-
+const Button = ({ title, onPress, mode = 'contained', loading, disabled, style, labelStyle, icon }) => {
   return (
-    <TouchableOpacity
+    <PaperButton
+      mode={mode}
       onPress={onPress}
+      loading={loading}
       disabled={disabled || loading}
-      activeOpacity={0.8}
-      style={[
-        styles.container,
-        {
-          backgroundColor: getBackgroundColor(),
-          borderWidth: variant === 'outline' ? 2 : 0,
-          borderColor: theme.colors.primary,
-        },
-        getSizeStyles(),
-        style,
-      ]}>
-      {loading ? (
-        <ActivityIndicator color={getTextColor()} />
-      ) : (
-        <>
-          {Icon && <Icon style={styles.icon} />}
-          <Text
-            style={[
-              styles.text,
-              {
-                color: getTextColor(),
-                fontSize: size === 'small' ? 14 : size === 'large' ? 18 : 16,
-              },
-              textStyle,
-            ]}>
-            {title}
-          </Text>
-        </>
-      )}
-    </TouchableOpacity>
+      style={[styles.button, mode === 'contained' && styles.contained, style]}
+      labelStyle={[styles.label, labelStyle]}
+      icon={icon}
+    >
+      {title}
+    </PaperButton>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  button: {
+    marginVertical: 8,
+    borderRadius: 12,
+    height: 52,
     justifyContent: 'center',
-    borderRadius: 8,
-    minWidth: 120,
   },
-  text: {
+  contained: {
+    backgroundColor: colors.primary,
+  },
+  label: {
+    fontSize: 16,
     fontWeight: '600',
-  },
-  icon: {
-    marginRight: 8,
+    letterSpacing: 0.5,
   },
 });
+
+export default Button;

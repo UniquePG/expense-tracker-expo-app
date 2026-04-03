@@ -1,123 +1,57 @@
-import {create} from 'zustand';
-import {friendsApi} from '../api/friendsApi';
+import { create } from 'zustand';
+import { friendsApi } from '../api';
 
 export const useFriendsStore = create((set, get) => ({
-  // State
   friends: [],
-  friendRequests: [],
-  balances: [],
+  balances: null,
+  pendingRequests: [],
   isLoading: false,
   error: null,
 
-  // Actions
   fetchFriends: async () => {
-    set({isLoading: true, error: null});
+    set({ isLoading: true, error: null });
     try {
-      const response = await friendsApi.getFriends();
-      set({friends: response.data, isLoading: false});
-      return response.data;
+      const response = await friendsApi.getAll();
+      set({ friends: response.data, isLoading: false });
     } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to fetch friends',
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  fetchFriendRequests: async () => {
-    set({isLoading: true, error: null});
-    try {
-      const response = await friendsApi.getFriendRequests();
-      set({friendRequests: response.data, isLoading: false});
-      return response.data;
-    } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to fetch requests',
-        isLoading: false,
-      });
-      throw error;
+      set({ error: error.message, isLoading: false });
     }
   },
 
   fetchBalances: async () => {
+    set({ isLoading: true, error: null });
     try {
       const response = await friendsApi.getBalances();
-      set({balances: response.data});
-      return response.data;
+      set({ balances: response.data, isLoading: false });
     } catch (error) {
-      console.error('Failed to fetch balances:', error);
+      set({ error: error.message, isLoading: false });
     }
   },
 
-  sendFriendRequest: async email => {
-    set({isLoading: true, error: null});
+  fetchPendingRequests: async () => {
+    set({ isLoading: true, error: null });
     try {
-      const response = await friendsApi.sendFriendRequest(email);
-      set({isLoading: false});
-      return response.data;
+      const response = await friendsApi.getPendingRequests();
+      set({ pendingRequests: response.data, isLoading: false });
     } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to send request',
-        isLoading: false,
-      });
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  sendFriendRequest: async (email) => {
+    set({ isLoading: true, error: null });
+    try {
+      await friendsApi.sendRequest(email);
+      set({ isLoading: false });
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  acceptFriendRequest: async requestId => {
-    set({isLoading: true, error: null});
-    try {
-      await friendsApi.acceptFriendRequest(requestId);
-      set(state => ({
-        friendRequests: state.friendRequests.filter(r => r.id !== requestId),
-        isLoading: false,
-      }));
-      // Refresh friends list
-      get().fetchFriends();
-      get().fetchBalances();
-    } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to accept request',
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  rejectFriendRequest: async requestId => {
-    set({isLoading: true, error: null});
-    try {
-      await friendsApi.rejectFriendRequest(requestId);
-      set(state => ({
-        friendRequests: state.friendRequests.filter(r => r.id !== requestId),
-        isLoading: false,
-      }));
-    } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to reject request',
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  removeFriend: async friendId => {
-    set({isLoading: true, error: null});
-    try {
-      await friendsApi.removeFriend(friendId);
-      set(state => ({
-        friends: state.friends.filter(f => f.id !== friendId),
-        isLoading: false,
-      }));
-    } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to remove friend',
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  clearError: () => set({error: null}),
+  setFriends: (friends) => set({ friends }),
+  setPendingRequests: (pendingRequests) => set({ pendingRequests }),
+  setBalances: (balances) => set({ balances }),
 }));
+
+export default useFriendsStore;

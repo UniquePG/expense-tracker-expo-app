@@ -1,59 +1,45 @@
 import React from 'react';
-import {View, Text, StyleSheet, Image} from 'react-native';
-import {useTheme} from 'react-native-paper';
-import {getInitials, getRandomColor} from '../../utils/helpers';
+import { View, Text, Image, StyleSheet } from 'react-native';
+import { colors } from '../../constants/colors';
+import { getInitials } from '../../utils/helpers';
 
-export const Avatar = ({
-  source,
-  name,
-  firstName,
-  lastName,
-  size = 40,
-  style,
-  textStyle,
-}) => {
-  const theme = useTheme();
-  
-  const displayName = name || `${firstName || ''} ${lastName || ''}`.trim();
-  const initials = getInitials(firstName, lastName) || getInitials(displayName, '') || '?';
-  const backgroundColor = getRandomColor();
-
-  const containerStyle = {
-    width: size,
-    height: size,
-    borderRadius: size / 2,
-    backgroundColor: source ? 'transparent' : backgroundColor,
-  };
-
-  const textStyleComputed = {
-    fontSize: size * 0.4,
-    color: '#FFFFFF',
-  };
+const Avatar = ({ source, name, size = 40, style }) => {
+  const containerStyle = [
+    styles.container,
+    { width: size, height: size, borderRadius: size / 2 },
+    style,
+  ];
 
   if (source) {
     return (
-      <Image
-        source={source}
-        style={[containerStyle, styles.image, style]}
-        resizeMode="cover"
+      <Image 
+        source={typeof source === 'string' ? { uri: source } : source} 
+        style={containerStyle} 
       />
     );
   }
 
   return (
-    <View style={[containerStyle, styles.container, style]}>
-      <Text style={[textStyleComputed, textStyle]}>{initials}</Text>
+    <View style={[containerStyle, styles.placeholder]}>
+      <Text style={[styles.initials, { fontSize: size * 0.4 }]}>
+        {getInitials(name)}
+      </Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#E5E7EB',
+  },
+  placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  image: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  initials: {
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
 });
+
+export default Avatar;

@@ -1,44 +1,33 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { colors } from '../../constants/colors';
+;
 
-export const FloatingActionButton = ({
-  icon = 'plus',
-  onPress,
-  size = 56,
-  style,
-  disabled = false,
-}) => {
-  const theme = useTheme();
-
+const FloatingActionButton = ({ icon, onPress, style }) => {
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        styles.container,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: theme.colors.primary,
-        },
-        style,
-      ]}
-      activeOpacity={0.8}>
-      <Icon name={icon} size={size * 0.4} color="#FFFFFF" />
+    <TouchableOpacity style={[styles.fab, style]} onPress={onPress}>
+      <Icon name={icon} size={30} color={colors.white} />
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
   },
 });
+
+export default FloatingActionButton;

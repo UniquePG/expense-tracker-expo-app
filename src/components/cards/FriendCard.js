@@ -1,88 +1,76 @@
 import React from 'react';
-import {View, StyleSheet} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
-import {Card} from '../ui/Card';
-import {Avatar} from '../ui/Avatar';
-import {formatCurrency} from '../../utils/formatCurrency';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { colors } from '../../constants/colors';
+import { getInitials } from '../../utils/helpers';
 
-export const FriendCard = ({friend, balance, onPress, style}) => {
-  const theme = useTheme();
-  
-  const balanceAmount = balance?.amount || 0;
-  const isOwed = balanceAmount > 0;
-  const isSettled = balanceAmount === 0;
-  
-  let balanceText;
-  let balanceColor;
-  
-  if (isSettled) {
-    balanceText = 'All settled up';
-    balanceColor = theme.colors.textSecondary;
-  } else if (isOwed) {
-    balanceText = `owes you ${formatCurrency(balanceAmount, balance.currency)}`;
-    balanceColor = theme.colors.income;
-  } else {
-    balanceText = `you owe ${formatCurrency(Math.abs(balanceAmount), balance.currency)}`;
-    balanceColor = theme.colors.expense;
-  }
+const FriendCard = ({ friend, onPress }) => {
+  const { firstName, lastName, avatar, email } = friend;
+  const fullName = `${firstName} ${lastName}`;
 
   return (
-    <Card onPress={onPress} style={[styles.container, style]}>
-      <View style={styles.row}>
-        <Avatar
-          source={friend.avatar ? {uri: friend.avatar} : null}
-          firstName={friend.firstName}
-          lastName={friend.lastName}
-          size={48}
-        />
-        
-        <View style={styles.content}>
-          <Text style={[styles.name, {color: theme.colors.text}]}>
-            {friend.firstName} {friend.lastName}
-          </Text>
-          <Text style={[styles.email, {color: theme.colors.textSecondary}]}>
-            {friend.email}
-          </Text>
+    <TouchableOpacity style={styles.container} onPress={onPress}>
+      {avatar ? (
+        <Image source={{ uri: avatar }} style={styles.avatar} />
+      ) : (
+        <View style={styles.initialsContainer}>
+          <Text style={styles.initials}>{getInitials(fullName)}</Text>
         </View>
-
-        <View style={styles.balanceContainer}>
-          <Text style={[styles.balanceText, {color: balanceColor}]}>
-            {balanceText}
-          </Text>
-        </View>
+      )}
+      <View style={styles.content}>
+        <Text style={styles.name}>{fullName}</Text>
+        <Text style={styles.email}>{email}</Text>
       </View>
-    </Card>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginVertical: 4,
-  },
-  row: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 16,
+  },
+  initialsContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  initials: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   content: {
     flex: 1,
-    marginLeft: 12,
   },
   name: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: colors.text,
   },
   email: {
-    fontSize: 12,
+    fontSize: 13,
+    color: colors.textSecondary,
     marginTop: 2,
   },
-  balanceContainer: {
-    alignItems: 'flex-end',
-    maxWidth: 120,
-  },
-  balanceText: {
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'right',
-  },
 });
+
+export default FriendCard;

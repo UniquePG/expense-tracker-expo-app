@@ -1,20 +1,14 @@
 import React from 'react';
-import {View, StyleSheet, ActivityIndicator, Modal} from 'react-native';
-import {useTheme, Text} from 'react-native-paper';
+import { View, ActivityIndicator, StyleSheet, Modal, Text } from 'react-native';
+import { colors } from '../../constants/colors';
 
-export const LoadingOverlay = ({visible, message = 'Loading...'}) => {
-  const theme = useTheme();
-
+const LoadingOverlay = ({ visible, message = 'Loading...' }) => {
   return (
     <Modal transparent visible={visible} animationType="fade">
-      <View style={styles.overlay}>
-        <View style={[styles.container, {backgroundColor: theme.colors.surface}]}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          {message && (
-            <Text style={[styles.message, {color: theme.colors.text}]}>
-              {message}
-            </Text>
-          )}
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          {message && <Text style={styles.message}>{message}</Text>}
         </View>
       </View>
     </Modal>
@@ -22,20 +16,25 @@ export const LoadingOverlay = ({visible, message = 'Loading...'}) => {
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  container: {
+  content: {
+    backgroundColor: colors.white,
     padding: 24,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
-    minWidth: 140,
+    minWidth: 120,
   },
   message: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
 });
+
+export default LoadingOverlay;

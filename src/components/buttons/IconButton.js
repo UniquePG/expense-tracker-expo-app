@@ -1,35 +1,22 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { colors } from '../../constants/colors';
+;
 
-export const IconButton = ({
-  icon,
-  onPress,
-  size = 24,
-  color,
-  style,
-  disabled = false,
-  badge,
-}) => {
-  const theme = useTheme();
-  const iconColor = color || theme.colors.text;
-
+const IconButton = ({ icon, size = 24, color = colors.text, onPress, style }) => {
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      style={[styles.container, style]}
-      activeOpacity={0.7}>
-      <Icon name={icon} size={size} color={iconColor} />
-      {badge}
+    <TouchableOpacity style={[styles.button, style]} onPress={onPress}>
+      <Icon name={icon} size={size} color={color} />
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  button: {
     padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
 });
+
+export default IconButton;

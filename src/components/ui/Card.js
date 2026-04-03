@@ -1,44 +1,33 @@
 import React from 'react';
-import {View, StyleSheet, TouchableOpacity} from 'react-native';
-import {useTheme} from 'react-native-paper';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { colors } from '../../constants/colors';
 
-export const Card = ({children, onPress, style, disabled = false}) => {
-  const theme = useTheme();
+const Card = ({ children, style, onPress, disabled }) => {
+  const Container = onPress ? TouchableOpacity : View;
 
-  const content = (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme.colors.card,
-          shadowColor: theme.colors.shadow,
-        },
-        style,
-      ]}>
+  return (
+    <Container 
+      style={[styles.card, style]} 
+      onPress={onPress} 
+      disabled={disabled}
+      activeOpacity={0.7}
+    >
       {children}
-    </View>
+    </Container>
   );
-
-  if (onPress) {
-    return (
-      <TouchableOpacity onPress={onPress} disabled={disabled} activeOpacity={0.8}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-
-  return content;
 };
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 12,
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
     padding: 16,
-    marginVertical: 8,
-    marginHorizontal: 16,
-    elevation: 2,
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 4,
   },
 });
+
+export default Card;

@@ -1,149 +1,145 @@
-import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, ScrollView} from 'react-native';
-import {Text, useTheme, Switch, Divider as PaperDivider} from 'react-native-paper';
-import {useNotifications} from '../../hooks/useNotifications';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {Card} from '../../components/ui/Card';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Text, Switch } from 'react-native';
+import { notificationsApi } from '../../api';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import Header from '../../components/ui/Header';
+import { colors } from '../../constants/colors';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import Toast from 'react-native-toast-message';
 
-const NOTIFICATION_TYPES = [
-  {key: 'expenseCreated', label: 'New Expenses', description: 'When someone adds an expense you\'re involved in'},
-  {key: 'expenseUpdated', label: 'Expense Updates', description: 'When an expense is modified'},
-  {key: 'payments', label: 'Payments & Settlements', description: 'When someone records a payment to you'},
-  {key: 'friendRequests', label: 'Friend Requests', description: 'When someone sends you a friend request'},
-  {key: 'groupInvites', label: 'Group Invites', description: 'When you\'re invited to a group'},
-  {key: 'reminders', label: 'Reminders', description: 'Weekly summaries and payment reminders'},
-];
-
-export const NotificationSettingsScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {settings, fetchSettings, updateSettings, isLoading} = useNotifications();
-  const [localSettings, setLocalSettings] = useState({});
+const NotificationSettingsScreen = () => {
+  const [settings, setSettings] = useState({
+    friendRequestNotifications: true,
+    expenseNotifications: true,
+    settlementNotifications: true,
+    groupNotifications: true,
+    emailNotifications: false,
+    pushNotifications: true,
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchSettings();
   }, []);
 
-  useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
-    }
-  }, [settings]);
-
-  const toggleSetting = async (key) => {
-    const newSettings = {
-      ...localSettings,
-      [key]: !localSettings[key],
-    };
-    setLocalSettings(newSettings);
-    
+  const fetchSettings = async () => {
+    setLoading(true);
     try {
-      await updateSettings(newSettings);
+      const response = await notificationsApi.getSettings();
+      setSettings(response.data);
     } catch (error) {
-      // Revert on error
-      setLocalSettings(localSettings);
+      console.error('Failed to fetch settings', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const renderToggleItem = (item) => (
-    <View key={item.key} style={styles.toggleItem}>
-      <View style={styles.toggleInfo}>
-        <Text style={[styles.toggleLabel, {color: theme.colors.text}]}>
-          {item.label}
-        </Text>
-        <Text style={[styles.toggleDescription, {color: theme.colors.textSecondary}]}>
-          {item.description}
-        </Text>
+  const toggleSetting = async (key) => {
+    const newSettings = { ...settings, [key]: !settings[key] };
+    setSettings(newSettings);
+    try {
+      await notificationsApi.updateSettings(newSettings);
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Failed to update setting' });
+      setSettings(settings); // Revert
+    }
+  };
+
+  const SettingItem = ({ label, value, onToggle, description }) => (
+    <View style={styles.item}>
+      <View style={styles.itemText}>
+        <Text style={styles.itemLabel}>{label}</Text>
+        {description && <Text style={styles.itemDescription}>{description}</Text>}
       </View>
       <Switch
-        value={localSettings[item.key] !== false}
-        onValueChange={() => toggleSetting(item.key)}
-        color={theme.colors.primary}
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: '#D1D5DB', true: colors.primary }}
+        thumbColor={colors.white}
       />
     </View>
   );
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Notifications"
-        onBack={() => navigation.goBack()}
-      />
+    <ScreenWrapper>
+      <Header title="Notification Settings" showBack />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.sectionTitle}>APP NOTIFICATIONS</Text>
+        <SettingItem
+          label="Friend Requests"
+          description="When someone sends you a friend request"
+          value={settings.friendRequestNotifications}
+          onToggle={() => toggleSetting('friendRequestNotifications')}
+        />
+        <SettingItem
+          label="New Expenses"
+          description="When someone adds an expense with you"
+          value={settings.expenseNotifications}
+          onToggle={() => toggleSetting('expenseNotifications')}
+        />
+        <SettingItem
+          label="Settlements"
+          description="When someone records a payment"
+          value={settings.settlementNotifications}
+          onToggle={() => toggleSetting('settlementNotifications')}
+        />
+        <SettingItem
+          label="Group Activity"
+          description="Invites and updates in your groups"
+          value={settings.groupNotifications}
+          onToggle={() => toggleSetting('groupNotifications')}
+        />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.card}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Push Notifications
-          </Text>
-          
-          {NOTIFICATION_TYPES.map((item, index) => (
-            <React.Fragment key={item.key}>
-              {renderToggleItem(item)}
-              {index < NOTIFICATION_TYPES.length - 1 && (
-                <PaperDivider style={styles.divider} />
-              )}
-            </React.Fragment>
-          ))}
-        </Card>
-
-        <Card style={[styles.card, {marginTop: 16}]}>
-          <View style={styles.toggleItem}>
-            <View style={styles.toggleInfo}>
-              <Text style={[styles.toggleLabel, {color: theme.colors.text}]}>
-                Email Notifications
-              </Text>
-              <Text style={[styles.toggleDescription, {color: theme.colors.textSecondary}]}>
-                Receive email summaries of your activity
-              </Text>
-            </View>
-            <Switch
-              value={localSettings.emailEnabled !== false}
-              onValueChange={() => toggleSetting('emailEnabled')}
-              color={theme.colors.primary}
-            />
-          </View>
-        </Card>
+        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>CHANNELS</Text>
+        <SettingItem
+          label="Push Notifications"
+          value={settings.pushNotifications}
+          onToggle={() => toggleSetting('pushNotifications')}
+        />
+        <SettingItem
+          label="Email Notifications"
+          value={settings.emailNotifications}
+          onToggle={() => toggleSetting('emailNotifications')}
+        />
       </ScrollView>
-
-      <LoadingOverlay visible={isLoading && !settings} />
+      <LoadingOverlay visible={loading} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  card: {
-    padding: 16,
+  content: {
+    padding: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 1,
     marginBottom: 16,
   },
-  toggleItem: {
+  item: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  toggleInfo: {
+  itemText: {
     flex: 1,
     marginRight: 16,
   },
-  toggleLabel: {
+  itemLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontWeight: '600',
+    color: colors.text,
   },
-  toggleDescription: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  divider: {
-    marginVertical: 8,
+  itemDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });
+
+export default NotificationSettingsScreen;

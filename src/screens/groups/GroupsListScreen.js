@@ -1,102 +1,134 @@
-import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
-import { useTheme } from 'react-native-paper';
-import { FloatingActionButton } from '../../components/buttons/FloatingActionButton';
-import { GroupCard } from '../../components/cards/GroupCard';
-import { SearchInput } from '../../components/inputs/SearchInput';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { Header } from '../../components/ui/Header';
-import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import FloatingActionButton from '../../components/buttons/FloatingActionButton';
+import SearchInput from '../../components/inputs/SearchInput';
+import Avatar from '../../components/ui/Avatar';
+import Card from '../../components/ui/Card';
+import EmptyState from '../../components/ui/EmptyState';
+import Header from '../../components/ui/Header';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import { colors } from '../../constants/colors';
 import { useGroups } from '../../hooks/useGroups';
+;
 
-export const GroupsListScreen = () => {
-  const navigation = useNavigation();
-  const theme = useTheme();
-  const [searchQuery, setSearchQuery] = React.useState('');
-  
-  const {
-    groups,
-    isLoading,
-    fetchGroups,
-  } = useGroups();
+const GroupsListScreen = ({ navigation }) => {
+  const [search, setSearch] = useState('');
+  const { groups, isLoading, fetchGroups } = useGroups();
 
-  const filteredGroups = groups.filter(group => {
-    if (!searchQuery) return true;
-    return group.name.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  useEffect(() => {
+    fetchGroups();
+  }, []);
 
-  const renderGroupItem = ({item}) => (
-    <GroupCard
-      group={item}
-      onPress={() => navigation.navigate('GroupDetails', {id: item.id})}
-    />
+  const filteredGroups = groups.filter((g) =>
+    g.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const renderEmptyState = () => (
-    <EmptyState
-      icon="account-group"
-      title="No groups yet"
-      message="Create a group to start splitting expenses with multiple people"
-      actionLabel="Create Group"
-      onAction={() => navigation.navigate('CreateGroup')}
-    />
+  const GroupItem = ({ item }) => (
+    <TouchableOpacity 
+      onPress={() => navigation.navigate('GroupDetails', { groupId: item.id, title: item.name })}
+    >
+      <Card style={styles.groupCard}>
+        <Avatar source={item.avatar} name={item.name} size={60} />
+        <View style={styles.groupInfo}>
+          <Text style={styles.groupName}>{item.name}</Text>
+          <Text style={styles.memberCount}>{item.members?.length || 0} members</Text>
+        </View>
+        <View style={styles.balanceContainer}>
+          <Text style={[styles.balanceLabel, { color: item.balance >= 0 ? colors.success : colors.error }]}>
+            {item.balance >= 0 ? 'You are owed' : 'You owe'}
+          </Text>
+          <Text style={[styles.balanceValue, { color: item.balance >= 0 ? colors.success : colors.error }]}>
+            ${Math.abs(item.balance || 0).toFixed(2)}
+          </Text>
+        </View>
+        <Icon name="chevron-right" size={24} color={colors.textSecondary} />
+      </Card>
+    </TouchableOpacity>
   );
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Groups"
-        subtitle={`${groups.length} groups`}
-      />
-
-      <View style={styles.container}>
+    <ScreenWrapper>
+      <Header title="Groups" showBack />
+      <View style={styles.searchContainer}>
         <SearchInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+          value={search}
+          onChangeText={setSearch}
           placeholder="Search groups..."
-          style={styles.searchInput}
         />
-
-        {filteredGroups.length === 0 && !isLoading ? (
-          renderEmptyState()
-        ) : (
-          <FlatList
-            data={filteredGroups}
-            keyExtractor={(item) => item.id}
-            renderItem={renderGroupItem}
-            contentContainerStyle={styles.listContent}
-            onRefresh={fetchGroups}
-            refreshing={isLoading}
-          />
-        )}
       </View>
-
-      <FloatingActionButton
-        onPress={() => navigation.navigate('CreateGroup')}
-        style={styles.fab}
+      <FlatList
+        data={filteredGroups}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <GroupItem item={item} />}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={fetchGroups} colors={[colors.primary]} />
+        }
+        ListEmptyComponent={
+          !isLoading && (
+            <EmptyState
+              icon="account-group"
+              title="No Groups Found"
+              message={search ? "Try a different search term." : "You haven't joined any groups yet."}
+              actionTitle={search ? null : "Create Group"}
+              onActionPress={() => navigation.navigate('CreateGroup')}
+            />
+          )
+        }
       />
-
+      <FloatingActionButton 
+        icon="plus" 
+        onPress={() => navigation.navigate('CreateGroup')} 
+      />
       <LoadingOverlay visible={isLoading && groups.length === 0} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  searchContainer: {
+    padding: 16,
+    backgroundColor: colors.white,
   },
-  searchInput: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-  },
-  listContent: {
+  list: {
+    padding: 16,
     paddingBottom: 100,
   },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 24,
+  groupCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginBottom: 16,
+  },
+  groupInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  groupName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  memberCount: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  balanceContainer: {
+    alignItems: 'flex-end',
+    marginRight: 8,
+  },
+  balanceLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  balanceValue: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
+
+export default GroupsListScreen;

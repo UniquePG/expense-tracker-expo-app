@@ -1,454 +1,414 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
     ScrollView,
     StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
     View,
 } from 'react-native';
-import { Button, Chip, IconButton, Menu, Text, useTheme } from 'react-native-paper';
-import { expensesApi } from '../../api/expensesApi';
-import { Avatar } from '../../components/ui/Avatar';
-import { Card } from '../../components/ui/Card';
-import { Divider } from '../../components/ui/Divider';
-import { Header } from '../../components/ui/Header';
-import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
-import { SPLIT_TYPES } from '../../constants/constants';
-import { useExpenses } from '../../hooks/useExpenses';
-import { formatDateTime } from '../../utils/dateFormatter';
+import { expensesApi, settlementsApi } from '../../api';
+import Avatar from '../../components/ui/Avatar';
+import { ImagePickerField } from '../../components/ui/ImagePickerField';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import { colors } from '../../constants/colors';
+import { useAuthStore } from '../../store/authStore';
 import { formatCurrency } from '../../utils/formatCurrency';
+import storage from '../../utils/storage';
+;
 
-export const ExpenseDetailsScreen = ({navigation, route}) => {
-  const {id} = route.params;
-  const theme = useTheme();
-  const {deleteExpense} = useExpenses();
+const asExpense = (response) =>
+  response?.data?.expense || response?.expense || response?.data || response || null;
+
+const asComments = (response) => {
+  if (Array.isArray(response?.data?.comments)) return response.data.comments;
+  if (Array.isArray(response?.comments)) return response.comments;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response)) return response;
+  return [];
+};
+
+const displayName = (person) =>
+  person?.fullName ||
+  [person?.firstName, person?.lastName].filter(Boolean).join(' ').trim() ||
+  person?.name ||
+  'Unknown';
+
+const ExpenseDetailsScreen = ({ navigation, route }) => {
+  const { expenseId } = route.params;
+  const authUser = useAuthStore((state) => state.user);
+
+  const [me, setMe] = useState(authUser || null);
   const [expense, setExpense] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentInput, setCommentInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
   useEffect(() => {
-    fetchExpenseDetails();
-  }, [id]);
+    const loadMe = async () => {
+      if (authUser?.id) return;
+      const storedUser = await storage.getUserData();
+      setMe(storedUser || null);
+    };
+    loadMe();
+  }, [authUser]);
 
-  const fetchExpenseDetails = async () => {
+  const loadExpense = useCallback(async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const response = await expensesApi.getExpenseDetails(id);
-      setExpense(response.data);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load expense details');
-      navigation.goBack();
+      const response = await expensesApi.getById(expenseId);
+      const data = asExpense(response);
+      setExpense(data);
+      if (Array.isArray(data?.comments) && data.comments.length) {
+        setComments(data.comments);
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to load expense details.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [expenseId]);
 
-  const handleDelete = useCallback(() => {
-    Alert.alert(
-      'Delete Expense',
-      'Are you sure you want to delete this expense? This action cannot be undone.',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteExpense(id);
-              navigation.goBack();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete expense');
-            }
-          },
+  const loadComments = useCallback(async () => {
+    try {
+      const response = await expensesApi.getComments(expenseId);
+      setComments(asComments(response));
+    } catch {
+      // keep existing comments if comments API fails
+    }
+  }, [expenseId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadExpense();
+      loadComments();
+    }, [loadExpense, loadComments])
+  );
+
+  const isPayer = useMemo(
+    () => !!expense?.paidBy?.id && !!me?.id && expense.paidBy.id === me.id,
+    [expense?.paidBy?.id, me?.id]
+  );
+
+  const splits = expense?.splits || [];
+  const mySplit = useMemo(
+    () =>
+      splits.find((split) => split?.user?.id === me?.id) ||
+      splits.find((split) => split?.userId === me?.id),
+    [splits, me?.id]
+  );
+  const remindableSplits = useMemo(
+    () =>
+      splits.filter(
+        (split) =>
+          !split?.isSettled &&
+          split?.user?.id &&
+          split.user.id !== me?.id &&
+          split.user.id !== expense?.paidBy?.id
+      ),
+    [splits, me?.id, expense?.paidBy?.id]
+  );
+
+  const onDelete = () => {
+    Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setIsBusy(true);
+          try {
+            await expensesApi.delete(expenseId);
+            Alert.alert('Deleted', 'Expense removed.');
+            navigation.goBack();
+          } catch (error) {
+            Alert.alert('Error', error?.response?.data?.message || 'Failed to delete expense.');
+          } finally {
+            setIsBusy(false);
+          }
         },
-      ]
-    );
-  }, [id, deleteExpense, navigation]);
-
-  const handleEdit = () => {
-    navigation.navigate('EditExpense', {id});
+      },
+    ]);
   };
 
-  const getSplitTypeLabel = (type) => {
-    switch (type) {
-      case SPLIT_TYPES.EQUAL: return 'Split equally';
-      case SPLIT_TYPES.PERCENTAGE: return 'Split by percentage';
-      case SPLIT_TYPES.EXACT: return 'Split by exact amounts';
-      case SPLIT_TYPES.SHARES: return 'Split by shares';
-      default: return 'Custom split';
+  const onUploadReceipt = async (file) => {
+    if (!file?.uri) return;
+    const formData = new FormData();
+    formData.append('receipt', {
+      uri: file.uri,
+      name: file.fileName || `receipt_${Date.now()}.jpg`,
+      type: file.type || 'image/jpeg',
+    });
+
+    setIsBusy(true);
+    try {
+      await expensesApi.uploadReceipt(expenseId, formData);
+      await loadExpense();
+      Alert.alert('Receipt Uploaded', 'Receipt was added successfully.');
+    } catch (error) {
+      Alert.alert('Error', error?.response?.data?.message || 'Failed to upload receipt.');
+    } finally {
+      setIsBusy(false);
     }
   };
 
-  if (!expense) {
-    return <LoadingOverlay visible={true} />;
+  const onAddComment = async () => {
+    const text = commentInput.trim();
+    if (!text) return;
+    if (text.length > 500) {
+      Alert.alert('Too Long', 'Comment must be 500 characters or fewer.');
+      return;
+    }
+
+    const optimistic = {
+      id: `temp-${Date.now()}`,
+      text,
+      user: me,
+      createdAt: new Date().toISOString(),
+      optimistic: true,
+    };
+    setComments((prev) => [...prev, optimistic]);
+    setCommentInput('');
+
+    try {
+      await expensesApi.addComment(expenseId, text);
+      await loadComments();
+    } catch (error) {
+      setComments((prev) => prev.filter((comment) => comment.id !== optimistic.id));
+      Alert.alert('Error', error?.response?.data?.message || 'Failed to post comment.');
+    }
+  };
+
+  const onRemindAll = async () => {
+    if (!remindableSplits.length) return;
+
+    setIsBusy(true);
+    try {
+      for (const split of remindableSplits) {
+        await settlementsApi.remind(expenseId, {
+          toUserId: split.user.id,
+          amount: num(split.amount),
+        });
+      }
+      const names = remindableSplits.map((split) => displayName(split.user)).join(', ');
+      Alert.alert('Reminder Sent', `Reminder sent to ${names}.`);
+    } catch (error) {
+      Alert.alert('Error', error?.response?.data?.message || 'Failed to send reminders.');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  if (isLoading || !expense) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </ScreenWrapper>
+    );
   }
 
-  const isCreator = expense.createdBy?.isCurrentUser;
-  const userShare = expense.participants?.find(p => p.isCurrentUser);
-
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Expense Details"
-        onBack={() => navigation.goBack()}
-        rightAction={
-          isCreator && (
-            <Menu
-              visible={menuVisible}
-              onDismiss={() => setMenuVisible(false)}
-              anchor={
-                <IconButton
-                  icon="dots-vertical"
-                  size={24}
-                  onPress={() => setMenuVisible(true)}
-                />
-              }>
-              <Menu.Item
-                onPress={handleEdit}
-                title="Edit"
-                leadingIcon="pencil"
-              />
-              <Menu.Item
-                onPress={handleDelete}
-                title="Delete"
-                leadingIcon="delete"
-                titleStyle={{color: theme.colors.error}}
-              />
-            </Menu>
-          )
-        }
-      />
+    <ScreenWrapper backgroundColor={colors.white}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={22} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {expense.description}
+        </Text>
+        <View style={styles.headerActions}>
+          {isPayer && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SplitWizard', { expenseId })}
+              style={styles.iconBtn}
+            >
+              <Icon name="tune-variant" size={20} color={colors.text} />
+            </TouchableOpacity>
+          )}
+          {isPayer && (
+            <TouchableOpacity onPress={onDelete} style={styles.iconBtn}>
+              <Icon name="trash-can-outline" size={20} color={colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.amountContainer}>
-          <Text style={[styles.amount, {color: theme.colors.text}]}>
-            {formatCurrency(expense.amount, expense.currency)}
+      {isBusy && <ActivityIndicator color={colors.primary} style={{ marginTop: 6 }} />}
+
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.hero}>
+          <Text style={styles.amount}>{formatCurrency(num(expense.amount), expense.currency || 'INR')}</Text>
+          <Text style={styles.heroMeta}>
+            {expense.category?.name || 'Uncategorized'} | Paid by {displayName(expense.paidBy)}
           </Text>
-          <Text style={[styles.description, {color: theme.colors.text}]}>
-            {expense.description}
-          </Text>
-          <Text style={[styles.date, {color: theme.colors.textSecondary}]}>
-            {formatDateTime(expense.date)}
+          <Text style={styles.heroMeta}>
+            {new Date(expense.expenseDate || expense.date || expense.createdAt).toDateString()} | {expense.splitType}
           </Text>
         </View>
 
-        <Card style={styles.detailsCard}>
-          <View style={styles.detailRow}>
-            <Icon name="tag" size={20} color={theme.colors.textSecondary} />
-            <View style={styles.detailContent}>
-              <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>
-                Category
+        {expense?.image ? (
+          <View style={styles.card}>
+            <Image source={{ uri: expense.image }} style={styles.receiptImage} />
+            {isPayer && (
+              <ImagePickerField
+                label="Replace Receipt"
+                value={null}
+                onChange={onUploadReceipt}
+              />
+            )}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Receipt</Text>
+            <ImagePickerField label="Add Receipt" value={null} onChange={onUploadReceipt} />
+          </View>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Who Owes What</Text>
+          {splits.map((split) => {
+            const person = split.user || split.contact || {};
+            const name = displayName(person);
+            const isMyUnsettled = split.user?.id === me?.id && !split.isSettled;
+            return (
+              <View key={split.id || `${name}-${split.amount}`} style={styles.splitRow}>
+                <View style={styles.left}>
+                  <Avatar source={person.avatar} name={name} size={34} />
+                  <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.name}>{name}</Text>
+                    <Text style={[styles.status, { color: split.isSettled ? colors.success : colors.error }]}>
+                      {split.isSettled ? 'Settled' : 'Pending'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.amountSmall}>{formatCurrency(num(split.amount), expense.currency || 'INR')}</Text>
+                  {isMyUnsettled && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        navigation.navigate('SettleDebt', {
+                          toUserId: expense?.paidBy?.id,
+                          amount: num(split.amount),
+                        })
+                      }
+                    >
+                      <Text style={styles.link}>Settle</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+          {!!mySplit && (
+            <View style={styles.summaryBox}>
+              <Text style={styles.summaryText}>
+                Your share: {formatCurrency(num(mySplit.amount), expense.currency || 'INR')} |{' '}
+                {mySplit.isSettled ? 'Settled' : 'You owe'}
               </Text>
-              <View style={styles.categoryContainer}>
-                <View
-                  style={[
-                    styles.categoryDot,
-                    {backgroundColor: expense.category?.color || theme.colors.primary},
-                  ]}
-                />
-                <Text style={[styles.detailValue, {color: theme.colors.text}]}>
-                  {expense.category?.name || 'Uncategorized'}
-                </Text>
+            </View>
+          )}
+        </View>
+
+        {isPayer && remindableSplits.length > 0 && (
+          <TouchableOpacity style={styles.remindBtn} onPress={onRemindAll}>
+            <Text style={styles.remindBtnText}>Remind All</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Comments</Text>
+          {comments.map((comment) => (
+            <View key={comment.id} style={styles.commentRow}>
+              <Avatar source={comment?.user?.avatar} name={displayName(comment?.user)} size={30} />
+              <View style={{ marginLeft: 8, flex: 1 }}>
+                <Text style={styles.commentName}>{displayName(comment?.user)}</Text>
+                <Text style={styles.commentText}>{comment.text}</Text>
               </View>
             </View>
-          </View>
-
-          <Divider />
-
-          <View style={styles.detailRow}>
-            <Icon name="account" size={20} color={theme.colors.textSecondary} />
-            <View style={styles.detailContent}>
-              <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>
-                Paid By
-              </Text>
-              <View style={styles.paidByContainer}>
-                <Avatar
-                  source={expense.paidBy?.avatar ? {uri: expense.paidBy.avatar} : null}
-                  firstName={expense.paidBy?.firstName}
-                  lastName={expense.paidBy?.lastName}
-                  size={24}
-                />
-                <Text style={[styles.detailValue, {color: theme.colors.text, marginLeft: 8}]}>
-                  {expense.paidBy?.isCurrentUser ? 'You' : `${expense.paidBy?.firstName} ${expense.paidBy?.lastName}`}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {expense.group && (
-            <>
-              <Divider />
-              <View style={styles.detailRow}>
-                <Icon name="account-group" size={20} color={theme.colors.textSecondary} />
-                <View style={styles.detailContent}>
-                  <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>
-                    Group
-                  </Text>
-                  <Text style={[styles.detailValue, {color: theme.colors.text}]}>
-                    {expense.group.name}
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
-
-          {expense.notes && (
-            <>
-              <Divider />
-              <View style={styles.detailRow}>
-                <Icon name="note-text" size={20} color={theme.colors.textSecondary} />
-                <View style={styles.detailContent}>
-                  <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>
-                    Notes
-                  </Text>
-                  <Text style={[styles.detailValue, {color: theme.colors.text}]}>
-                    {expense.notes}
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
-        </Card>
-
-        <View style={styles.splitSection}>
-          <View style={styles.splitHeader}>
-            <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-              Split Details
-            </Text>
-            <Chip icon="information" style={styles.splitChip}>
-              {getSplitTypeLabel(expense.split?.type)}
-            </Chip>
-          </View>
-
-          {expense.participants?.map(participant => (
-            <Card key={participant.userId} style={styles.participantCard}>
-              <View style={styles.participantRow}>
-                <Avatar
-                  source={participant.avatar ? {uri: participant.avatar} : null}
-                  firstName={participant.firstName}
-                  lastName={participant.lastName}
-                  size={40}
-                />
-                <View style={styles.participantInfo}>
-                  <Text style={[styles.participantName, {color: theme.colors.text}]}>
-                    {participant.isCurrentUser ? 'You' : `${participant.firstName} ${participant.lastName}`}
-                  </Text>
-                  <Text style={[styles.participantShare, {color: theme.colors.textSecondary}]}>
-                    {expense.split?.type === SPLIT_TYPES.PERCENTAGE && `${participant.percentage}% • `}
-                    {expense.split?.type === SPLIT_TYPES.SHARES && `${participant.shares} share${participant.shares !== 1 ? 's' : ''} • `}
-                    owes {formatCurrency(participant.amountOwed, expense.currency)}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.participantAmount,
-                    {
-                      color: participant.isCurrentUser
-                        ? participant.amountOwed > 0
-                          ? theme.colors.expense
-                          : theme.colors.income
-                        : theme.colors.text,
-                    },
-                  ]}>
-                  {participant.isCurrentUser && participant.amountOwed > 0 ? '-' : ''}
-                  {formatCurrency(Math.abs(participant.amountOwed), expense.currency)}
-                </Text>
-              </View>
-            </Card>
           ))}
-        </View>
-
-        {userShare && (
-          <Card
-            style={[
-              styles.yourShareCard,
-              {
-                backgroundColor: userShare.amountOwed > 0 ? theme.colors.expense + '10' : theme.colors.income + '10',
-                borderColor: userShare.amountOwed > 0 ? theme.colors.expense : theme.colors.income,
-              },
-            ]}>
-            <Text style={[styles.yourShareLabel, {color: theme.colors.textSecondary}]}>
-              Your Share
-            </Text>
-            <Text
-              style={[
-                styles.yourShareAmount,
-                {
-                  color: userShare.amountOwed > 0 ? theme.colors.expense : theme.colors.income,
-                },
-              ]}>
-              {userShare.amountOwed > 0 ? 'You owe ' : 'You are owed '}
-              {formatCurrency(Math.abs(userShare.amountOwed), expense.currency)}
-            </Text>
-          </Card>
-        )}
-
-        {expense.receipt && (
-          <Card style={styles.receiptCard}>
-            <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-              Receipt
-            </Text>
-            <Image
-              source={{uri: expense.receipt}}
-              style={styles.receiptImage}
-              resizeMode="contain"
+          <View style={styles.commentInputWrap}>
+            <TextInput
+              style={styles.commentInput}
+              value={commentInput}
+              onChangeText={setCommentInput}
+              placeholder="Add a comment..."
+              maxLength={500}
             />
-          </Card>
-        )}
-
-        {isCreator && (
-          <View style={styles.actions}>
-            <Button
-              mode="outlined"
-              onPress={handleEdit}
-              style={styles.actionButton}
-              icon="pencil">
-              Edit
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={handleDelete}
-              style={[styles.actionButton, {borderColor: theme.colors.error}]}
-              textColor={theme.colors.error}
-              icon="delete">
-              Delete
-            </Button>
+            <TouchableOpacity onPress={onAddComment}>
+              <Icon name="send" size={20} color={colors.primary} />
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
       </ScrollView>
-
-      <LoadingOverlay visible={isLoading} />
     </ScreenWrapper>
   );
 };
 
+const num = (value) => {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  amountContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  amount: {
-    fontSize: 40,
-    fontWeight: 'bold',
-  },
-  description: {
-    fontSize: 20,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  date: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  detailsCard: {
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-  },
-  detailContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 16,
-  },
-  categoryContainer: {
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  header: {
+    height: 56,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  categoryDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  paidByContainer: {
-    flexDirection: 'row',
+  headerTitle: { flex: 1, marginHorizontal: 10, fontSize: 16, fontWeight: '700', color: colors.text },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  iconBtn: { padding: 4 },
+  content: { padding: 14, paddingBottom: 24 },
+  hero: { backgroundColor: '#F2FAFD', borderRadius: 14, padding: 14, marginBottom: 12 },
+  amount: { fontSize: 30, fontWeight: '800', color: colors.text },
+  heroMeta: { marginTop: 4, color: colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  card: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, marginBottom: 12 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  receiptImage: { width: '100%', height: 200, borderRadius: 10, marginBottom: 8 },
+  splitRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  left: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  name: { fontSize: 13, fontWeight: '600', color: colors.text },
+  status: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  amountSmall: { fontSize: 13, fontWeight: '700', color: colors.text },
+  link: { marginTop: 3, color: colors.primary, fontSize: 12, fontWeight: '700' },
+  summaryBox: { marginTop: 8, backgroundColor: '#EAF7FF', borderRadius: 10, padding: 10 },
+  summaryText: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  remindBtn: {
+    height: 44,
+    backgroundColor: '#F7EBF2',
+    borderRadius: 10,
     alignItems: 'center',
-  },
-  splitSection: {
-    marginTop: 8,
-  },
-  splitHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  splitChip: {
-    height: 32,
-  },
-  participantCard: {
-    marginBottom: 8,
-    padding: 12,
-  },
-  participantRow: {
+  remindBtnText: { color: '#A3346E', fontWeight: '700' },
+  commentRow: { flexDirection: 'row', marginBottom: 10 },
+  commentName: { fontSize: 12, fontWeight: '700', color: colors.text },
+  commentText: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  commentInputWrap: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  participantInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  participantName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  participantShare: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  participantAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  yourShareCard: {
-    marginTop: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-  },
-  yourShareLabel: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  yourShareAmount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  receiptCard: {
-    marginTop: 16,
-    padding: 16,
-  },
-  receiptImage: {
-    width: '100%',
-    height: 300,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  actionButton: {
-    flex: 1,
-  },
+  commentInput: { flex: 1, color: colors.text, marginRight: 8 },
 });
+
+export default ExpenseDetailsScreen;

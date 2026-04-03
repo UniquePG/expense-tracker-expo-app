@@ -1,183 +1,207 @@
-import React, {useState} from 'react';
-import {View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
-import {Text, useTheme, Snackbar} from 'react-native-paper';
-import {useForm, Controller} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {loginSchema} from '../../utils/validationSchemas';
-import {useAuth} from '../../hooks/useAuth';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {InputField} from '../../components/inputs/InputField';
-import {Button} from '../../components/buttons/Button';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
+import React, { useState } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { useAuthStore } from '../../store/authStore';
+import { authApi } from '../../api';
+import InputField from '../../components/inputs/InputField';
+import Button from '../../components/buttons/Button';
+import { colors } from '../../constants/colors';
+import Toast from 'react-native-toast-message';
 
-export const LoginScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {login, isLoading, error, clearError} = useAuth();
-  const [secureTextEntry, setSecureTextEntry] = useState(true);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
+const LoginScreen = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const setAuth = useAuthStore((state) => state.setAuth);
 
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Toast.show({ type: 'error', text1: 'Please fill all fields' });
+      return;
+    }
 
-  const onSubmit = async data => {
-    const result = await login(data.email, data.password);
-    if (!result.success) {
-      setSnackbarVisible(true);
+    setLoading(true);
+    try {
+      console.log('email, password :', email, password);
+      const response = await authApi.login({ email, password });
+      const { user, token, refreshToken } = response.data;
+      await setAuth(user, token, refreshToken);
+      Toast.show({ type: 'success', text1: 'Welcome back!' });
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Login failed', text2: error.response?.data?.message || 'Check your credentials' });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          
-          <View style={styles.header}>
-            <Text style={[styles.title, {color: theme.colors.primary}]}>
-              Welcome Back
-            </Text>
-            <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-              Sign in to continue to your account
-            </Text>
-          </View>
+    <ScrollView contentContainerStyle={styles.container} bounces={false}>
+      <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={{ uri: 'https://img.icons8.com/color/96/000000/wallet.png' }} 
+            style={styles.logo} 
+          />
+          <Text style={styles.appName}>SpendWise</Text>
+        </View>
+      </View>
 
-          <View style={styles.form}>
-            <Controller
-              control={control}
-              name="email"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="Email"
-                  placeholder="Enter your email"
-                  value={value}
-                  onChangeText={onChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  leftIcon="email"
-                  error={errors.email?.message}
-                />
-              )}
-            />
+      <View style={styles.content}>
+        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.subtitle}>Manage your expenses with ease</Text>
 
-            <Controller
-              control={control}
-              name="password"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="Password"
-                  placeholder="Enter your password"
-                  value={value}
-                  onChangeText={onChange}
-                  secureTextEntry={secureTextEntry}
-                  leftIcon="lock"
-                  rightIcon={secureTextEntry ? 'eye-off' : 'eye'}
-                  onRightPress={() => setSecureTextEntry(!secureTextEntry)}
-                  error={errors.password?.message}
-                />
-              )}
-            />
+        <InputField
+          label="Email Address"
+          placeholder="name@example.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
 
-            <Button
-              title="Forgot Password?"
-              variant="ghost"
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={styles.forgotButton}
-              textStyle={{fontSize: 14}}
-            />
+        <InputField
+          label="Password"
+          placeholder="Enter your password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          rightIcon="eye"
+        />
 
-            <Button
-              title="Sign In"
-              onPress={handleSubmit(onSubmit)}
-              loading={isLoading}
-              disabled={isLoading}
-              style={styles.loginButton}
-            />
-          </View>
+        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+          <Text style={styles.forgotPassword}>Forgot Password?</Text>
+        </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Text style={{color: theme.colors.textSecondary}}>
-              Don't have an account?{' '}
-            </Text>
-            <Button
-              title="Sign Up"
-              variant="ghost"
-              onPress={() => navigation.navigate('Register')}
-              textStyle={{color: theme.colors.primary}}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <Button title="Login" onPress={handleLogin} loading={loading} />
 
-      <LoadingOverlay visible={isLoading} message="Signing in..." />
+        <View style={styles.dividerContainer}>
+          <View style={styles.line} />
+          <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
+          <View style={styles.line} />
+        </View>
 
-      <Snackbar
-        visible={snackbarVisible || !!error}
-        onDismiss={() => {
-          setSnackbarVisible(false);
-          clearError();
-        }}
-        duration={3000}
-        action={{
-          label: 'Dismiss',
-          onPress: () => {
-            setSnackbarVisible(false);
-            clearError();
-          },
-        }}>
-        {error || 'Login failed. Please try again.'}
-      </Snackbar>
-    </ScreenWrapper>
+        <View style={styles.socialContainer}>
+          <TouchableOpacity style={styles.socialButton}>
+            <Image source={{ uri: 'https://img.icons8.com/color/48/000000/google-logo.png' }} style={styles.socialIcon} />
+            <Text style={styles.socialText}>Google</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.socialButton}>
+            <Image source={{ uri: 'https://img.icons8.com/ios-filled/50/000000/mac-os.png' }} style={styles.socialIcon} />
+            <Text style={styles.socialText}>Apple</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don&apos;t have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.signUpText}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  scrollContent: {
     flexGrow: 1,
-    padding: 24,
-    justifyContent: 'center',
+    backgroundColor: colors.white,
   },
   header: {
-    marginBottom: 48,
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    marginRight: 8,
+  },
+  appName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  content: {
+    padding: 24,
     alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 8,
+    marginTop: 20,
   },
   subtitle: {
     fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 32,
   },
-  form: {
-    width: '100%',
-  },
-  forgotButton: {
+  forgotPassword: {
     alignSelf: 'flex-end',
-    marginTop: -8,
-    marginBottom: 16,
+    color: colors.primary,
+    fontWeight: '600',
+    marginBottom: 24,
   },
-  loginButton: {
-    marginTop: 8,
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  socialContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 32,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '48%',
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  socialIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  socialText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 32,
+    marginTop: 20,
+  },
+  footerText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  signUpText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '700',
   },
 });
+
+export default LoginScreen;

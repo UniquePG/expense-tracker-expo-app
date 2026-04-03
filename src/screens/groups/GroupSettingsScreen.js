@@ -1,220 +1,174 @@
-import React, {useState} from 'react';
-import {
-  View,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import {Text, useTheme, Snackbar, Switch} from 'react-native-paper';
-import {useForm, Controller} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {groupSchema} from '../../utils/validationSchemas';
-import {useGroups} from '../../hooks/useGroups';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {InputField} from '../../components/inputs/InputField';
-import {SelectField} from '../../components/inputs/SelectField';
-import {Button} from '../../components/buttons/Button';
-import {Divider} from '../../components/ui/Divider';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
-import {CURRENCIES} from '../../constants/constants';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Button from '../../components/buttons/Button';
+import InputField from '../../components/inputs/InputField';
+import Avatar from '../../components/ui/Avatar';
+import Header from '../../components/ui/Header';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import { colors } from '../../constants/colors';
+import { useGroups } from '../../hooks/useGroups';
+;
 
-export const GroupSettingsScreen = ({navigation, route}) => {
-  const {id} = route.params;
-  const theme = useTheme();
-  const {currentGroup, updateGroup, isLoading} = useGroups();
-  const [error, setError] = useState(null);
-  const [simplifyDebts, setSimplifyDebts] = useState(currentGroup?.simplifyDebts || false);
+const GroupSettingsScreen = ({ route, navigation }) => {
+  const { groupId } = route.params;
+  const { getGroupDetails, groupDetails, updateGroup, deleteGroup, isLoading } = useGroups();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
 
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm({
-    resolver: zodResolver(groupSchema),
-    defaultValues: {
-      name: currentGroup?.name || '',
-      description: currentGroup?.description || '',
-      currency: currentGroup?.currency || 'USD',
-    },
-  });
+  useEffect(() => {
+    getGroupDetails(groupId);
+  }, [groupId]);
 
-  const onSubmit = async (data) => {
+  useEffect(() => {
+    if (groupDetails) {
+      setName(groupDetails.name);
+      setDescription(groupDetails.description || '');
+    }
+  }, [groupDetails]);
+
+  const handleUpdate = async () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Group name is required');
+      return;
+    }
+
     try {
-      setError(null);
-      await updateGroup(id, {
-        ...data,
-        simplifyDebts,
-      });
+      await updateGroup(groupId, { name, description });
+      Alert.alert('Success', 'Group updated successfully');
       navigation.goBack();
-    } catch (err) {
-      setError(err.message || 'Failed to update group');
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Update failed');
     }
   };
 
-  const handleLeaveGroup = () => {
+  const handleDelete = () => {
     Alert.alert(
-      'Leave Group',
-      'Are you sure you want to leave this group? You will no longer be able to see or add expenses.',
+      'Delete Group',
+      'Are you sure you want to delete this group? This action cannot be undone.',
       [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Leave',
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
           style: 'destructive',
           onPress: async () => {
-            // API call to leave group
-            navigation.goBack();
-          },
+            try {
+              await deleteGroup(groupId);
+              Alert.alert('Success', 'Group deleted');
+              navigation.navigate('GroupsList');
+            } catch (error) {
+              Alert.alert('Error', error.message || 'Failed to delete group');
+            }
+          }
         },
       ]
     );
   };
 
-  const currencyOptions = CURRENCIES.map(c => ({
-    label: `${c.name} (${c.symbol})`,
-    value: c.code,
-  }));
+  if (!groupDetails && !isLoading) return null;
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Group Settings"
-        onBack={() => navigation.goBack()}
-      />
+    <ScreenWrapper>
+      <Header title="Group Settings" showBack />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.avatarSection}>
+          <Avatar source={groupDetails?.avatar} name={groupDetails?.name} size={100} radius={50} />
+          <TouchableOpacity style={styles.editAvatarBtn}>
+            <Text style={styles.editAvatarText}>Change Icon</Text>
+          </TouchableOpacity>
+        </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          
-          <Controller
-            control={control}
-            name="name"
-            render={({field: {onChange, value}}) => (
-              <InputField
-                label="Group Name"
-                value={value}
-                onChangeText={onChange}
-                leftIcon="account-group"
-                error={errors.name?.message}
-              />
-            )}
-          />
+        <InputField
+          label="Group Name"
+          value={name}
+          onChangeText={setName}
+          placeholder="Enter group name"
+        />
+        <InputField
+          label="Description"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Enter group description"
+          multiline
+          numberOfLines={3}
+        />
 
-          <Controller
-            control={control}
-            name="description"
-            render={({field: {onChange, value}}) => (
-              <InputField
-                label="Description"
-                value={value}
-                onChangeText={onChange}
-                leftIcon="text"
-                multiline
-                numberOfLines={2}
-                error={errors.description?.message}
-              />
-            )}
-          />
+        <Button 
+          title="Save Changes" 
+          onPress={handleUpdate} 
+          loading={isLoading} 
+          style={styles.saveBtn}
+        />
 
-          <Controller
-            control={control}
-            name="currency"
-            render={({field: {onChange, value}}) => (
-              <SelectField
-                label="Currency"
-                value={value}
-                options={currencyOptions}
-                onSelect={onChange}
-                error={errors.currency?.message}
-              />
-            )}
-          />
-
-          <View style={styles.switchContainer}>
-            <View style={styles.switchInfo}>
-              <Text style={[styles.switchLabel, {color: theme.colors.text}]}>
-                Simplify Debts
-              </Text>
-              <Text style={[styles.switchDescription, {color: theme.colors.textSecondary}]}>
-                Automatically minimize the number of payments between group members
-              </Text>
+        <View style={styles.dangerSection}>
+          <Text style={styles.dangerTitle}>DANGER ZONE</Text>
+          <TouchableOpacity style={styles.dangerItem} onPress={handleDelete}>
+            <View style={styles.dangerIcon}>
+              <Icon name="delete-outline" size={24} color={colors.error} />
             </View>
-            <Switch
-              value={simplifyDebts}
-              onValueChange={setSimplifyDebts}
-              color={theme.colors.primary}
-            />
-          </View>
-
-          <Divider spacing={32} />
-
-          <Button
-            title="Save Changes"
-            onPress={handleSubmit(onSubmit)}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.saveButton}
-          />
-
-          <Button
-            title="Leave Group"
-            variant="outline"
-            onPress={handleLeaveGroup}
-            style={[styles.leaveButton, {borderColor: theme.colors.error}]}
-            textStyle={{color: theme.colors.error}}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <LoadingOverlay visible={isLoading} />
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={3000}
-        action={{label: 'Dismiss', onPress: () => setError(null)}}>
-        {error}
-      </Snackbar>
+            <Text style={styles.dangerText}>Delete Group</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+      <LoadingOverlay visible={isLoading && !groupDetails} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  content: {
+    padding: 24,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  switchContainer: {
-    flexDirection: 'row',
+  avatarSection: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: 16,
+    marginBottom: 32,
   },
-  switchInfo: {
-    flex: 1,
-    marginRight: 16,
+  editAvatarBtn: {
+    marginTop: 12,
   },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
+  editAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
-  switchDescription: {
+  saveBtn: {
+    marginTop: 24,
+  },
+  dangerSection: {
+    marginTop: 40,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  dangerTitle: {
     fontSize: 12,
-    lineHeight: 16,
-  },
-  saveButton: {
+    fontWeight: '700',
+    color: colors.error,
+    letterSpacing: 1,
     marginBottom: 16,
   },
-  leaveButton: {
-    borderWidth: 1,
+  dangerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+  },
+  dangerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  dangerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.error,
   },
 });
+
+export default GroupSettingsScreen;

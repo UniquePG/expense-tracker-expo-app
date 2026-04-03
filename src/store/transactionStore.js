@@ -1,91 +1,63 @@
-import {create} from 'zustand';
-import {transactionsApi} from '../api/transactionsApi';
+import { create } from 'zustand';
+import { transactionsApi } from '../api';
 
 export const useTransactionStore = create((set, get) => ({
-  // State
   transactions: [],
-  categories: [],
-  currentTransaction: null,
   isLoading: false,
   error: null,
-  pagination: {
-    page: 1,
-    limit: 20,
-    total: 0,
-    hasMore: true,
-  },
-  filters: {
-    type: null,
-    category: null,
-    startDate: null,
-    endDate: null,
-  },
 
-  // Actions
-  fetchTransactions: async (reset = false) => {
-    const {pagination, filters} = get();
-    const page = reset ? 1 : pagination.page;
-
-    if (!reset && !pagination.hasMore) return;
-
-    set({isLoading: true, error: null});
+  fetchTransactions: async (params) => {
+    set({ isLoading: true, error: null });
     try {
-      const response = await transactionsApi.getTransactions({
-        page,
-        limit: pagination.limit,
-        ...filters,
-      });
-
-      const newTransactions = reset
-        ? response.data.transactions
-        : [...get().transactions, ...response.data.transactions];
-
-      set({
-        transactions: newTransactions,
-        pagination: {
-          ...pagination,
-          page: page + 1,
-          total: response.data.total,
-          hasMore: newTransactions.length < response.data.total,
-        },
-        isLoading: false,
-      });
+      const response = await transactionsApi.getAll(params);
+      set({ transactions: response.data, isLoading: false });
     } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to fetch transactions',
-        isLoading: false,
-      });
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  fetchTransactionById: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await transactionsApi.getById(id);
+      set({ isLoading: false });
+      return response.data;
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  fetchCategories: async type => {
+  createTransaction: async (data) => {
+    set({ isLoading: true, error: null });
     try {
-      const response = await transactionsApi.getCategories(type);
-      set({categories: response.data});
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch categories:', error);
-    }
-  },
-
-  createTransaction: async transactionData => {
-    set({isLoading: true, error: null});
-    try {
-      const response = await transactionsApi.createTransaction(transactionData);
-      set(state => ({
+      const response = await transactionsApi.create(data);
+      set((state) => ({
         transactions: [response.data, ...state.transactions],
         isLoading: false,
       }));
       return response.data;
     } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to create transaction',
-        isLoading: false,
-      });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  clearError: () => set({error: null}),
+  deleteTransaction: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await transactionsApi.delete(id);
+      set((state) => ({
+        transactions: state.transactions.filter((t) => t.id !== id),
+        isLoading: false,
+      }));
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  setTransactions: (transactions) => set({ transactions }),
 }));
+
+export default useTransactionStore;

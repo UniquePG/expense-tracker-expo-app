@@ -1,139 +1,121 @@
-import React, {useState, useEffect} from 'react';
-import {View, StyleSheet, FlatList, TouchableOpacity} from 'react-native';
-import {Text, useTheme, RadioButton} from 'react-native-paper';
-import {useUserStore} from '../../store/userStore';
-import {userApi} from '../../api/userApi';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {SearchInput} from '../../components/inputs/SearchInput';
-import {Card} from '../../components/ui/Card';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
-import {CURRENCIES} from '../../constants/constants';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
+import { userApi } from '../../api';
+import Header from '../../components/ui/Header';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import { colors } from '../../constants/colors';
+import { useAuthStore } from '../../store/authStore';
+;
 
-export const CurrencySettingsScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {profile} = useUserStore();
-  console.log('profile :', profile);
-  const [selectedCurrency, setSelectedCurrency] = useState(profile?.user?.currency || 'USD');
+const currencies = [
+  { label: 'US Dollar (USD)', value: 'USD', symbol: '$' },
+  { label: 'Euro (EUR)', value: 'EUR', symbol: '€' },
+  { label: 'British Pound (GBP)', value: 'GBP', symbol: '£' },
+  { label: 'Indian Rupee (INR)', value: 'INR', symbol: '₹' },
+  { label: 'Japanese Yen (JPY)', value: 'JPY', symbol: '¥' },
+];
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+const CurrencySettingsScreen = ({ navigation }) => {
+  const { user, setUser } = useAuthStore();
+  // console.log('user :', user);
+  const [selectedCurrency, setSelectedCurrency] = useState(user?.currency || 'USD');
+  const [loading, setLoading] = useState(false);
 
-  const filteredCurrencies = CURRENCIES.filter(c => {
-    const query = searchQuery.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(query) ||
-      c.code.toLowerCase().includes(query) ||
-      c.symbol.includes(query)
-    );
-  });
-
-  const handleSelect = async (currencyCode) => {
-    if (currencyCode === selectedCurrency) return;
-    
+  const handleSave = async (currency) => {
+    setSelectedCurrency(currency);
+    setLoading(true);
     try {
-      setIsLoading(true);
-      await userApi.updateProfile({currency: currencyCode});
-      setSelectedCurrency(currencyCode);
-      setTimeout(() => navigation.goBack(), 500);
+      const response = await userApi.updateProfile({ currency });
+      console.log('currency response :', response);
+      setUser(response.data.user);
+      Toast.show({ type: 'success', text1: 'Currency updated' });
+      navigation.goBack();
     } catch (error) {
-      console.error('Failed to update currency:', error);
+    console.log('error :', error);
+      Toast.show({ type: 'error', text1: 'Failed to update currency' });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const renderCurrencyItem = ({item}) => (
-    <TouchableOpacity
-      onPress={() => handleSelect(item.code)}>
-      <Card style={styles.currencyCard}>
-        <View style={styles.currencyRow}>
-          <View style={styles.currencyInfo}>
-            <Text style={[styles.currencySymbol, {color: theme.colors.text}]}>
-              {item.symbol}
-            </Text>
-            <View style={styles.currencyDetails}>
-              <Text style={[styles.currencyName, {color: theme.colors.text}]}>
-                {item.name}
-              </Text>
-              <Text style={[styles.currencyCode, {color: theme.colors.textSecondary}]}>
-                {item.code}
-              </Text>
-            </View>
-          </View>
-          <RadioButton
-            value={item.code}
-            status={selectedCurrency === item.code ? 'checked' : 'unchecked'}
-            onPress={() => handleSelect(item.code)}
-            color={theme.colors.primary}
-          />
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
-
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Default Currency"
-        onBack={() => navigation.goBack()}
-      />
-
-      <SearchInput
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search currencies..."
-        style={styles.searchInput}
-      />
-
-      <FlatList
-        data={filteredCurrencies}
-        keyExtractor={(item) => item.code}
-        renderItem={renderCurrencyItem}
-        contentContainerStyle={styles.listContent}
-      />
-
-      <LoadingOverlay visible={isLoading} />
+    <ScreenWrapper>
+      <Header title="Currency Settings" showBack />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.subtitle}>Select your preferred currency for display and calculations.</Text>
+        {currencies.map((item) => (
+          <TouchableOpacity 
+            key={item.value} 
+            style={[styles.item, selectedCurrency === item.value && styles.selectedItem]}
+            onPress={() => handleSave(item.value)}
+          >
+            <View style={styles.itemLeft}>
+              <View style={styles.symbolContainer}>
+                <Text style={styles.symbol}>{item.symbol}</Text>
+              </View>
+              <Text style={styles.label}>{item.label}</Text>
+            </View>
+            {selectedCurrency === item.value && (
+              <Icon name="check" size={24} color={colors.primary} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <LoadingOverlay visible={loading} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  searchInput: {
-    marginHorizontal: 16,
-    marginVertical: 8,
+  content: {
+    padding: 24,
   },
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
+  subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 24,
   },
-  currencyCard: {
-    marginBottom: 8,
-    padding: 16,
-  },
-  currencyRow: {
+  item: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  currencyInfo: {
+  selectedItem: {
+    borderColor: colors.primary,
+    backgroundColor: '#F0F9FF',
+  },
+  itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  currencySymbol: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  symbolContainer: {
     width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
-  currencyDetails: {
-    marginLeft: 12,
+  symbol: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
   },
-  currencyName: {
+  label: {
     fontSize: 16,
-    fontWeight: '500',
-  },
-  currencyCode: {
-    fontSize: 12,
-    marginTop: 2,
+    fontWeight: '600',
+    color: colors.text,
   },
 });
+
+export default CurrencySettingsScreen;

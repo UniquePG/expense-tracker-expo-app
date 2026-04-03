@@ -1,259 +1,187 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
-import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    View,
-} from 'react-native';
-import { Button, Menu, Text, useTheme } from 'react-native-paper';
-import { expensesApi } from '../../api/expensesApi';
-import { friendsApi } from '../../api/friendsApi';
-import { ExpenseCard } from '../../components/cards/ExpenseCard';
-import { Avatar } from '../../components/ui/Avatar';
-import { Card } from '../../components/ui/Card';
-import { Divider } from '../../components/ui/Divider';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { Header } from '../../components/ui/Header';
-import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
+import { useEffect } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Avatar from '../../components/ui/Avatar';
+import Card from '../../components/ui/Card';
+import Header from '../../components/ui/Header';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import { colors } from '../../constants/colors';
 import { useFriends } from '../../hooks/useFriends';
 import { formatCurrency } from '../../utils/formatCurrency';
+;
 
-export const FriendProfileScreen = ({navigation, route}) => {
-  const {id} = route.params;
-  const theme = useTheme();
-  const {removeFriend, getFriendBalance} = useFriends();
-  const [friend, setFriend] = useState(null);
-  const [sharedExpenses, setSharedExpenses] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [menuVisible, setMenuVisible] = useState(false);
-
-  const balance = getFriendBalance(id);
+const FriendProfileScreen = ({ route, navigation }) => {
+  const { friendId } = route.params;
+  const { getFriendDetails, friendDetails, removeFriend, isLoading } = useFriends();
 
   useEffect(() => {
-    fetchFriendData();
-  }, [id]);
+    getFriendDetails(friendId);
+  }, [friendId]);
 
-  const fetchFriendData = async () => {
-    try {
-      setIsLoading(true);
-      const [friendResponse, expensesResponse] = await Promise.all([
-        friendsApi.getFriendDetails(id),
-        expensesApi.getExpenses({friendId: id, limit: 10}),
-      ]);
-      setFriend(friendResponse.data);
-      setSharedExpenses(expensesResponse.data.expenses);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load friend data');
-      navigation.goBack();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRemoveFriend = useCallback(() => {
+  const handleRemoveFriend = () => {
     Alert.alert(
       'Remove Friend',
-      `Are you sure you want to remove ${friend?.firstName} from your friends?`,
+      `Are you sure you want to remove ${friendDetails?.name} from your friends?`,
       [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Remove',
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
           style: 'destructive',
           onPress: async () => {
             try {
-              await removeFriend(id);
+              await removeFriend(friendId);
+              Alert.alert('Success', 'Friend removed');
               navigation.goBack();
             } catch (error) {
               Alert.alert('Error', 'Failed to remove friend');
             }
-          },
+          }
         },
       ]
     );
-  }, [friend, id, removeFriend, navigation]);
-
-  const handleSettleUp = () => {
-    navigation.navigate('SettleDebt', {friendId: id});
   };
 
-  const handleAddExpense = () => {
-    navigation.navigate('CreateExpense', {friendId: id});
-  };
-
-  if (!friend) {
-    return <LoadingOverlay visible={true} />;
-  }
-
-  const isOwed = balance?.amount > 0;
-  const isSettled = !balance || balance.amount === 0;
+  if (!friendDetails && !isLoading) return null;
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Friend Profile"
-        onBack={() => navigation.goBack()}
-        rightAction={
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <Icon.Button
-                name="dots-vertical"
-                size={24}
-                color={theme.colors.text}
-                backgroundColor="transparent"
-                onPress={() => setMenuVisible(true)}
-              />
-            }>
-            <Menu.Item
-              onPress={handleRemoveFriend}
-              title="Remove Friend"
-              leadingIcon="account-remove"
-              titleStyle={{color: theme.colors.error}}
-            />
-          </Menu>
-        }
-      />
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <ScreenWrapper>
+      <Header title="Friend Profile" showBack />
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.profileHeader}>
-          <Avatar
-            source={friend.avatar ? {uri: friend.avatar} : null}
-            firstName={friend.firstName}
-            lastName={friend.lastName}
-            size={80}
-          />
-          <Text style={[styles.name, {color: theme.colors.text}]}>
-            {friend.firstName} {friend.lastName}
-          </Text>
-          <Text style={[styles.email, {color: theme.colors.textSecondary}]}>
-            {friend.email}
-          </Text>
+          <Avatar source={friendDetails?.avatar} name={friendDetails?.name} size={100} radius={50} />
+          <Text style={styles.name}>{friendDetails?.name}</Text>
+          <Text style={styles.email}>{friendDetails?.email}</Text>
         </View>
 
-        {!isSettled && (
-          <Card style={[styles.balanceCard, {borderColor: isOwed ? theme.colors.income : theme.colors.expense}]}>
-            <Text style={[styles.balanceLabel, {color: theme.colors.textSecondary}]}>
-              {isOwed ? `${friend.firstName} owes you` : `You owe ${friend.firstName}`}
+        <View style={styles.statsContainer}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statLabel}>You owe</Text>
+            <Text style={[styles.statValue, { color: colors.error }]}>
+              {formatCurrency(friendDetails?.balance < 0 ? Math.abs(friendDetails.balance) : 0)}
             </Text>
-            <Text style={[
-              styles.balanceAmount,
-              {color: isOwed ? theme.colors.income : theme.colors.expense}
-            ]}>
-              {formatCurrency(Math.abs(balance?.amount || 0), balance?.currency)}
-            </Text>
-            
-            {!isOwed && (
-              <Button
-                mode="contained"
-                onPress={handleSettleUp}
-                style={styles.settleButton}>
-                Settle Up
-              </Button>
-            )}
           </Card>
-        )}
-
-        <View style={styles.actions}>
-          <Button
-            mode="contained"
-            icon="cash-plus"
-            onPress={handleAddExpense}
-            style={styles.actionButton}>
-            Add Expense
-          </Button>
-          <Button
-            mode="outlined"
-            icon="swap-horizontal"
-            onPress={() => navigation.navigate('Settlements', {friendId: id})}
-            style={styles.actionButton}>
-            View Settlements
-          </Button>
+          <Card style={styles.statCard}>
+            <Text style={styles.statLabel}>Owes you</Text>
+            <Text style={[styles.statValue, { color: colors.success }]}>
+              {formatCurrency(friendDetails?.balance > 0 ? friendDetails.balance : 0)}
+            </Text>
+          </Card>
         </View>
 
-        <Divider spacing={24} />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ACTIONS</Text>
+          <TouchableOpacity 
+            style={styles.actionItem} 
+            onPress={() => navigation.navigate('SettleDebt', { friendId })}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#ECFDF5' }]}>
+              <Icon name="handshake" size={24} color={colors.success} />
+            </View>
+            <Text style={styles.actionText}>Settle Up</Text>
+            <Icon name="chevron-right" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
 
-        <View style={styles.expensesSection}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Shared Expenses
-          </Text>
-          
-          {sharedExpenses.length === 0 ? (
-            <EmptyState
-              icon="receipt"
-              title="No shared expenses"
-              message="You haven't shared any expenses with this friend yet"
-              actionLabel="Add First Expense"
-              onAction={handleAddExpense}
-            />
-          ) : (
-            sharedExpenses.map(expense => (
-              <ExpenseCard
-                key={expense.id}
-                expense={expense}
-                onPress={() => navigation.navigate('ExpenseDetails', {id: expense.id})}
-              />
-            ))
-          )}
+          <TouchableOpacity 
+            style={styles.actionItem} 
+            onPress={() => navigation.navigate('AddExpense', { friendId })}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#F0F9FF' }]}>
+              <Icon name="plus-circle" size={24} color={colors.primary} />
+            </View>
+            <Text style={styles.actionText}>Add Expense</Text>
+            <Icon name="chevron-right" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.actionItem, styles.removeBtn]} onPress={handleRemoveFriend}>
+            <View style={[styles.actionIcon, { backgroundColor: '#FEF2F2' }]}>
+              <Icon name="account-remove" size={24} color={colors.error} />
+            </View>
+            <Text style={[styles.actionText, { color: colors.error }]}>Remove Friend</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-
       <LoadingOverlay visible={isLoading} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
+  content: {
+    paddingBottom: 40,
   },
   profileHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    padding: 32,
+    backgroundColor: colors.white,
   },
   name: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: colors.text,
     marginTop: 16,
   },
   email: {
-    fontSize: 14,
+    fontSize: 16,
+    color: colors.textSecondary,
     marginTop: 4,
   },
-  balanceCard: {
-    alignItems: 'center',
-    padding: 24,
-    marginBottom: 16,
-    borderWidth: 2,
+  statsContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    justifyContent: 'space-between',
   },
-  balanceLabel: {
-    fontSize: 14,
+  statCard: {
+    width: '48%',
+    alignItems: 'center',
+    padding: 20,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
     marginBottom: 8,
   },
-  balanceAmount: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
   },
-  settleButton: {
-    width: '100%',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  expensesSection: {
-    marginTop: 8,
+  section: {
+    padding: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 1,
     marginBottom: 16,
   },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  actionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  removeBtn: {
+    borderBottomWidth: 0,
+    marginTop: 12,
+  },
 });
+
+export default FriendProfileScreen;

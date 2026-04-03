@@ -1,47 +1,47 @@
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export const friendsApi = {
-  getFriends: async (page = 1, limit = 20) => {
-    const response = await axiosClient.get(API_ENDPOINTS.FRIENDS.LIST, {
-      params: {page, limit},
-    });
-    return response.data;
+  sendRequest: async (email) => {
+    const response = await axiosClient.post(ENDPOINTS.FRIENDS.REQUEST, { email });
+    return response;
   },
-
-  getFriendRequests: async () => {
-    const response = await axiosClient.get(API_ENDPOINTS.FRIENDS.REQUESTS);
-    return response.data;
+  getRequests: async () => {
+    const response = await axiosClient.get(ENDPOINTS.FRIENDS.REQUESTS);
+    return response;
   },
-
-  sendFriendRequest: async email => {
-    const response = await axiosClient.post(API_ENDPOINTS.FRIENDS.SEND_REQUEST, {
-      email,
-    });
-    return response.data;
+  getPendingRequests: async () => {
+    const response = await axiosClient.get(ENDPOINTS.FRIENDS.PENDING);
+    return response;
   },
-
-  acceptFriendRequest: async requestId => {
-    const response = await axiosClient.post(
-      API_ENDPOINTS.FRIENDS.ACCEPT_REQUEST(requestId),
-    );
-    return response.data;
+  getSentRequests: async () => {
+    const response = await axiosClient.get(ENDPOINTS.FRIENDS.SENT);
+    return response;
   },
-
-  rejectFriendRequest: async requestId => {
-    const response = await axiosClient.post(
-      API_ENDPOINTS.FRIENDS.REJECT_REQUEST(requestId),
-    );
-    return response.data;
+  acceptRequest: async (id) => {
+    const response = await axiosClient.post(ENDPOINTS.FRIENDS.ACCEPT(id));
+    return response;
   },
-
-  removeFriend: async friendId => {
-    const response = await axiosClient.delete(API_ENDPOINTS.FRIENDS.REMOVE(friendId));
-    return response.data;
+  rejectRequest: async (id) => {
+    const response = await axiosClient.post(ENDPOINTS.FRIENDS.REJECT(id));
+    return response;
   },
-
+  getAll: async () => {
+    const response = await axiosClient.get(ENDPOINTS.FRIENDS.BASE);
+    return response;
+  },
+  getById: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.FRIENDS.DETAILS(id));
+    return response;
+  },
+  remove: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.FRIENDS.DETAILS(id));
+    return response;
+  },
   getBalances: async () => {
-    const response = await axiosClient.get(API_ENDPOINTS.FRIENDS.BALANCES);
-    return response.data;
+    const response = await axiosClient.get(ENDPOINTS.FRIENDS.BALANCES);
+    return response;
   },
 };
+
+export default friendsApi;

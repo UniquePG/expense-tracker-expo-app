@@ -1,150 +1,111 @@
-import React, {useState} from 'react';
-import {View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
-import {Text, useTheme, Snackbar} from 'react-native-paper';
-import {useForm, Controller} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {forgotPasswordSchema} from '../../utils/validationSchemas';
-import {authApi} from '../../api/authApi';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {InputField} from '../../components/inputs/InputField';
-import {Button} from '../../components/buttons/Button';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Button from '../../components/buttons/Button';
+import InputField from '../../components/inputs/InputField';
+import { colors } from '../../constants/colors';
+;
 
-export const ForgotPasswordScreen = ({navigation}) => {
-  const theme = useTheme();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+const ForgotPasswordScreen = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm({
-    resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: {
-      email: '',
-    },
-  });
-
-  const onSubmit = async data => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await authApi.forgotPassword(data.email);
-      setSuccess(true);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send reset email. Please try again.');
-    } finally {
-      setIsLoading(false);
+  const handleReset = () => {
+    if (email) {
+      setSubmitted(true);
     }
   };
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header title="Forgot Password" onBack={() => navigation.goBack()} />
-      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          
-          <View style={styles.content}>
-            <Text style={[styles.description, {color: theme.colors.textSecondary}]}>
-              Enter your email address and we'll send you a link to reset your password.
-            </Text>
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <Icon name="arrow-left" size={28} color={colors.text} />
+      </TouchableOpacity>
 
-            <Controller
-              control={control}
-              name="email"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="Email"
-                  placeholder="Enter your email"
-                  value={value}
-                  onChangeText={onChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  leftIcon="email"
-                  error={errors.email?.message}
-                />
-              )}
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.iconContainer}>
+          <Icon name="lock-reset" size={80} color={colors.primary} />
+        </View>
+
+        <Text style={styles.title}>Forgot Password?</Text>
+        <Text style={styles.subtitle}>
+          {submitted 
+            ? `We've sent a password reset link to ${email}. Please check your inbox.`
+            : "Enter your email address and we'll send you a link to reset your password."}
+        </Text>
+
+        {!submitted ? (
+          <>
+            <InputField
+              label="Email Address"
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              leftIcon="email-outline"
             />
-
-            <Button
-              title="Send Reset Link"
-              onPress={handleSubmit(onSubmit)}
-              loading={isLoading}
-              disabled={isLoading}
-              style={styles.submitButton}
+            <Button 
+              title="Send Reset Link" 
+              onPress={handleReset} 
+              style={styles.resetBtn} 
             />
-
-            {success && (
-              <View style={styles.successContainer}>
-                <Text style={[styles.successText, {color: theme.colors.success}]}>
-                  Check your email for password reset instructions.
-                </Text>
-                <Button
-                  title="Back to Login"
-                  variant="ghost"
-                  onPress={() => navigation.navigate('Login')}
-                  style={styles.backButton}
-                />
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <LoadingOverlay visible={isLoading} message="Sending..." />
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={3000}
-        action={{
-          label: 'Dismiss',
-          onPress: () => setError(null),
-        }}>
-        {error}
-      </Snackbar>
-    </ScreenWrapper>
+          </>
+        ) : (
+          <Button 
+            title="Back to Login" 
+            onPress={() => navigation.navigate('Login')} 
+            style={styles.resetBtn} 
+          />
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
+  backBtn: {
+    paddingTop: 60,
+    paddingHorizontal: 24,
   },
   content: {
-    marginTop: 24,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  submitButton: {
-    marginTop: 16,
-  },
-  successContainer: {
-    marginTop: 32,
+    paddingHorizontal: 24,
+    paddingTop: 40,
     alignItems: 'center',
   },
-  successText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
+  iconContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#E0F2F1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 32,
   },
-  backButton: {
-    marginTop: 8,
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 40,
+  },
+  resetBtn: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    marginTop: 20,
   },
 });
+
+export default ForgotPasswordScreen;

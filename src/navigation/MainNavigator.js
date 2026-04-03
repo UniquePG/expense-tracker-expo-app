@@ -1,111 +1,49 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useTheme } from 'react-native-paper';
-import { useNotificationsStore } from '../store/notificationsStore';
-
-// Navigators
-import { DashboardNavigator } from './DashboardNavigator';
-import { FriendsNavigator } from './FriendsNavigator';
-import { GroupsNavigator } from './GroupsNavigator';
-import { ProfileNavigator } from './ProfileNavigator';
-import { TransactionsNavigator } from './TransactionsNavigator';
-
-// Screens that need to be accessible from multiple places
-import { CreateExpenseScreen } from '../screens/expenses/CreateExpenseScreen';
-import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
+import { colors } from '../constants/colors';
+import AnalyticsScreen from '../screens/analytics/AnalyticsScreen';
+import DashboardScreen from '../screens/dashboard/DashboardScreen';
+import GroupsScreen from '../screens/groups/GroupsScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
+;
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
 
-const MainTabs = () => {
-  const theme = useTheme();
-  const {unreadCount} = useNotificationsStore();
-
+const MainNavigator = () => {
   return (
     <Tab.Navigator
-      screenOptions={({route}) => ({
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-        },
-        tabBarIcon: ({focused, color, size}) => {
+        tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-
-          switch (route.name) {
-            case 'DashboardTab':
-              iconName = focused ? 'home' : 'home-outline';
-              break;
-            case 'TransactionsTab':
-              iconName = focused ? 'cash' : 'cash';
-              break;
-            case 'GroupsTab':
-              iconName = focused ? 'account-group' : 'account-group-outline';
-              break;
-            case 'FriendsTab':
-              iconName = focused ? 'account-multiple' : 'account-multiple-outline';
-              break;
-            case 'ProfileTab':
-              iconName = focused ? 'account' : 'account-outline';
-              break;
-            default:
-              iconName = 'circle';
-          }
-
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Groups') iconName = focused ? 'account-group' : 'account-group-outline';
+          else if (route.name === 'Analytics') iconName = focused ? 'chart-pie' : 'chart-pie-outline';
+          else if (route.name === 'Profile') iconName = focused ? 'account' : 'account-outline';
           return <Icon name={iconName} size={size} color={color} />;
         },
-      })}>
-      <Tab.Screen
-        name="DashboardTab"
-        component={DashboardNavigator}
-        options={{title: 'Home'}}
-      />
-      <Tab.Screen
-        name="TransactionsTab"
-        component={TransactionsNavigator}
-        options={{title: 'Transactions'}}
-      />
-      <Tab.Screen
-        name="GroupsTab"
-        component={GroupsNavigator}
-        options={{title: 'Groups'}}
-      />
-      <Tab.Screen
-        name="FriendsTab"
-        component={FriendsNavigator}
-        options={{title: 'Friends'}}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileNavigator}
-        options={{title: 'Profile'}}
-      />
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: {
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
+          borderTopWidth: 0,
+          elevation: 0,
+          backgroundColor: colors.white,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={DashboardScreen} />
+      <Tab.Screen name="Groups" component={GroupsScreen} />
+      <Tab.Screen name="Analytics" component={AnalyticsScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };
 
-export const MainNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-      }}>
-      <Stack.Screen name="MainTabs" component={MainTabs} />
-      
-      {/* Global screens accessible from anywhere */}
-      <Stack.Screen 
-        name="CreateExpense" 
-        component={CreateExpenseScreen}
-        options={{presentation: 'modal'}}
-      />
-      <Stack.Screen 
-        name="Notifications" 
-        component={NotificationsScreen}
-      />
-    </Stack.Navigator>
-  );
-};
+export default MainNavigator;

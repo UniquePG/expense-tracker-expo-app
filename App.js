@@ -1,21 +1,27 @@
-import React from 'react';
-import {StatusBar} from 'expo-status-bar';
-import {PaperProvider} from 'react-native-paper';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Provider as PaperProvider } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
-import {AppNavigator} from './src/navigation/AppNavigator';
-import {useUIStore} from './src/store/uiStore';
-import {lightTheme, darkTheme} from './src/constants/theme';
+import AppNavigator from './src/navigation/AppNavigator';
+import { theme } from './src/constants/theme';
+import { useEffect } from 'react';
+import { useUserStore } from './src/store/userStore';
 
 export default function App() {
-  const {theme} = useUIStore();
-  const isDark = theme === 'dark';
+
+    const {  fetchProfile } = useUserStore();
+    // console.log('profile :', profile);
+  
+    useEffect(() => {
+      fetchProfile();
+    }, []);
+
 
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={isDark ? darkTheme : lightTheme}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
+      <PaperProvider theme={theme}>
         <AppNavigator />
+        <StatusBar style="auto" />
         <Toast />
       </PaperProvider>
     </SafeAreaProvider>

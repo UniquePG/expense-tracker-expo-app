@@ -1,70 +1,45 @@
-import {create} from 'zustand';
-import {settlementsApi} from '../api/settlementsApi';
+import { create } from 'zustand';
+import { settlementsApi } from '../api';
 
 export const useSettlementsStore = create((set, get) => ({
-  // State
-  settlements: [],
-  currentSettlement: null,
+  settlements: { sent: [], received: [] },
   isLoading: false,
   error: null,
-  pagination: {
-    page: 1,
-    limit: 20,
-    total: 0,
-    hasMore: true,
-  },
 
-  // Actions
-  fetchSettlements: async (reset = false) => {
-    const {pagination} = get();
-    const page = reset ? 1 : pagination.page;
-
-    if (!reset && !pagination.hasMore) return;
-
-    set({isLoading: true, error: null});
+  fetchSettlements: async (params) => {
+    set({ isLoading: true, error: null });
     try {
-      const response = await settlementsApi.getSettlements({page, limit: pagination.limit});
-      
-      const newSettlements = reset
-        ? response.data.settlements
-        : [...get().settlements, ...response.data.settlements];
-
-      set({
-        settlements: newSettlements,
-        pagination: {
-          ...pagination,
-          page: page + 1,
-          total: response.data.total,
-          hasMore: newSettlements.length < response.data.total,
-        },
-        isLoading: false,
-      });
+      const response = await settlementsApi.getAll(params);
+      set({ settlements: response.data, isLoading: false });
     } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to fetch settlements',
-        isLoading: false,
-      });
-      throw error;
+      set({ error: error.message, isLoading: false });
     }
   },
 
-  createSettlement: async settlementData => {
-    set({isLoading: true, error: null});
+  createSettlement: async (data) => {
+    set({ isLoading: true, error: null });
     try {
-      const response = await settlementsApi.createSettlement(settlementData);
-      set(state => ({
-        settlements: [response.data, ...state.settlements],
-        isLoading: false,
-      }));
+      const response = await settlementsApi.create(data);
+      set({ isLoading: false });
       return response.data;
     } catch (error) {
-      set({
-        error: error.response?.data?.message || 'Failed to create settlement',
-        isLoading: false,
-      });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
-  clearError: () => set({error: null}),
+  confirmSettlement: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await settlementsApi.confirm(id);
+      set({ isLoading: false });
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  setSettlements: (settlements) => set({ settlements }),
 }));
+
+export default useSettlementsStore;

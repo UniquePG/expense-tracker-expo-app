@@ -1,149 +1,104 @@
-import React, {useState} from 'react';
-import {
-  View,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import {Text, useTheme, Snackbar} from 'react-native-paper';
-import {useForm, Controller} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {friendRequestSchema} from '../../utils/validationSchemas';
-import {useFriends} from '../../hooks/useFriends';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {InputField} from '../../components/inputs/InputField';
-import {Button} from '../../components/buttons/Button';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, Text, Alert } from 'react-native';
+import { useFriends } from '../../hooks/useFriends';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import Header from '../../components/ui/Header';
+import InputField from '../../components/inputs/InputField';
+import Button from '../../components/buttons/Button';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { colors } from '../../constants/colors';
 
-export const AddFriendScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {sendFriendRequest} = useFriends();
-  const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState(null);
+const AddFriendScreen = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const { sendFriendRequest, isLoading } = useFriends();
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: {errors},
-  } = useForm({
-    resolver: zodResolver(friendRequestSchema),
-    defaultValues: {
-      email: '',
-    },
-  });
+  const handleSendRequest = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter an email address');
+      return;
+    }
 
-  const onSubmit = async (data) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      await sendFriendRequest(data.email);
-      setSuccess(true);
-      reset();
-      setTimeout(() => {
-        navigation.goBack();
-      }, 1500);
-    } catch (err) {
-      setError(err.message || 'Failed to send friend request');
-    } finally {
-      setIsLoading(false);
+      await sendFriendRequest(email);
+      Alert.alert('Success', 'Friend request sent!');
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to send request');
     }
   };
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Add Friend"
-        onBack={() => navigation.goBack()}
-      />
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          
-          <View style={styles.infoContainer}>
-            <Text style={[styles.infoTitle, {color: theme.colors.text}]}>
-              Invite a Friend
-            </Text>
-            <Text style={[styles.infoText, {color: theme.colors.textSecondary}]}>
-              Enter your friend's email address to send them a friend request. They'll need to accept your request before you can start splitting expenses.
-            </Text>
+    <ScreenWrapper>
+      <Header title="Add Friend" showBack />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.iconContainer}>
+          <View style={styles.circle}>
+            <Text style={styles.icon}>@</Text>
           </View>
+        </View>
+        <Text style={styles.title}>Send a Friend Request</Text>
+        <Text style={styles.subtitle}>Enter your friend&apos;s email address to add them to SpendWise.</Text>
+        
+        <InputField
+          label="Email Address"
+          placeholder="friend@example.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
 
-          <Controller
-            control={control}
-            name="email"
-            render={({field: {onChange, value}}) => (
-              <InputField
-                label="Email Address"
-                placeholder="friend@example.com"
-                value={value}
-                onChangeText={onChange}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                leftIcon="email"
-                error={errors.email?.message}
-              />
-            )}
-          />
-
-          <Button
-            title="Send Friend Request"
-            onPress={handleSubmit(onSubmit)}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.submitButton}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <LoadingOverlay visible={isLoading} message="Sending request..." />
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={3000}
-        action={{label: 'Dismiss', onPress: () => setError(null)}}>
-        {error}
-      </Snackbar>
-
-      <Snackbar
-        visible={success}
-        onDismiss={() => setSuccess(false)}
-        duration={2000}
-        style={{backgroundColor: theme.colors.success}}>
-        Friend request sent successfully!
-      </Snackbar>
+        <Button 
+          title="Send Request" 
+          onPress={handleSendRequest} 
+          loading={isLoading} 
+          style={styles.button}
+        />
+      </ScrollView>
+      <LoadingOverlay visible={isLoading} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
+  content: {
     padding: 24,
+    alignItems: 'center',
   },
-  infoContainer: {
+  iconContainer: {
+    marginBottom: 24,
+    marginTop: 40,
+  },
+  circle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  icon: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
     marginBottom: 32,
+    lineHeight: 24,
   },
-  infoTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  submitButton: {
+  button: {
+    width: '100%',
     marginTop: 16,
   },
 });
+
+export default AddFriendScreen;

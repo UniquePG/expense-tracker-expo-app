@@ -1,50 +1,19 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { colors } from '../../constants/colors';
+;
 
-export const SearchInput = ({
-  value,
-  onChangeText,
-  placeholder = 'Search...',
-  onClear,
-  style,
-  ...props
-}) => {
-  const theme = useTheme();
-
+const SearchInput = ({ value, onChangeText, placeholder = 'Search...', style }) => {
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border,
-        },
-        style,
-      ]}>
-      <Icon
-        name="magnify"
-        size={20}
-        color={theme.colors.textSecondary}
-        style={styles.icon}
-      />
+    <View style={[styles.container, style]}>
+      <Icon name="magnify" size={20} color={colors.textSecondary} style={styles.icon} />
       <TextInput
+        style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.placeholder}
-        style={[styles.input, {color: theme.colors.text}]}
-        {...props}
+        placeholderTextColor={colors.textSecondary}
       />
-      {value?.length > 0 && (
-        <Icon
-          name="close-circle"
-          size={20}
-          color={theme.colors.textSecondary}
-          style={styles.clearIcon}
-          onPress={onClear || (() => onChangeText(''))}
-        />
-      )}
     </View>
   );
 };
@@ -53,11 +22,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
     paddingHorizontal: 12,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    height: 48,
   },
   icon: {
     marginRight: 8,
@@ -65,9 +33,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    paddingVertical: 10,
-  },
-  clearIcon: {
-    marginLeft: 8,
+    color: colors.text,
+    paddingVertical: 8,
   },
 });
+
+export default SearchInput;

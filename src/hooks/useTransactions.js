@@ -1,64 +1,32 @@
-import {useCallback, useEffect} from 'react';
-import {useTransactionStore} from '../store/transactionStore';
+import { useEffect } from 'react';
+import { useTransactionStore } from '../store/transactionStore';
 
-export const useTransactions = (options = {}) => {
-  const {autoFetch = true, type = null} = options;
-
-  const {
-    transactions,
-    categories,
-    currentTransaction,
-    isLoading,
-    error,
-    pagination,
-    filters,
-    fetchTransactions,
-    fetchCategories,
-    createTransaction,
-    setFilters,
-    clearError,
+export const useTransactions = (params) => {
+  const { 
+    transactions, 
+    isLoading, 
+    error, 
+    fetchTransactions, 
+    fetchTransactionById, 
+    createTransaction, 
+    deleteTransaction 
   } = useTransactionStore();
 
   useEffect(() => {
-    fetchCategories(type);
-    if (autoFetch) {
-      if (type) setFilters({type});
-      fetchTransactions(true);
+    if (params) {
+      fetchTransactions(params);
     }
-  }, [autoFetch, type]);
-
-  const loadMore = useCallback(() => {
-    if (!isLoading && pagination.hasMore) {
-      fetchTransactions();
-    }
-  }, [isLoading, pagination.hasMore, fetchTransactions]);
-
-  const refresh = useCallback(() => {
-    fetchTransactions(true);
-  }, [fetchTransactions]);
-
-  const handleCreateTransaction = useCallback(async transactionData => {
-    try {
-      const result = await createTransaction(transactionData);
-      return {success: true, data: result};
-    } catch (error) {
-      return {success: false, error: error.message};
-    }
-  }, [createTransaction]);
+  }, [JSON.stringify(params)]);
 
   return {
     transactions,
-    categories,
-    currentTransaction,
     isLoading,
     error,
-    pagination,
-    filters,
-    loadMore,
-    refresh,
-    fetchCategories,
-    createTransaction: handleCreateTransaction,
-    setFilters,
-    clearError,
+    fetchTransactions,
+    fetchTransactionById,
+    createTransaction,
+    deleteTransaction,
   };
 };
+
+export default useTransactions;

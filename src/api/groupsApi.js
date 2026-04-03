@@ -1,68 +1,61 @@
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export const groupsApi = {
-  getGroups: async (page = 1, limit = 20) => {
-    const response = await axiosClient.get(API_ENDPOINTS.GROUPS.LIST, {
-      params: {page, limit},
-    });
-    return response.data;
+  create: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.GROUPS.BASE, data);
+    return response;
   },
-
-  createGroup: async groupData => {
-    const response = await axiosClient.post(API_ENDPOINTS.GROUPS.CREATE, groupData);
-    return response.data;
+  getAll: async (params) => {
+    const response = await axiosClient.get(ENDPOINTS.GROUPS.BASE, { params });
+    return response;
   },
-
-  getGroupDetails: async groupId => {
-    const response = await axiosClient.get(API_ENDPOINTS.GROUPS.DETAIL(groupId));
-    return response.data;
+  getById: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.GROUPS.ID(id));
+    return response;
   },
-
-  updateGroup: async (groupId, groupData) => {
-    const response = await axiosClient.put(
-      API_ENDPOINTS.GROUPS.UPDATE(groupId),
-      groupData,
-    );
-    return response.data;
+  update: async (id, data) => {
+    const response = await axiosClient.put(ENDPOINTS.GROUPS.ID(id), data);
+    return response;
   },
-
-  deleteGroup: async groupId => {
-    const response = await axiosClient.delete(API_ENDPOINTS.GROUPS.DELETE(groupId));
-    return response.data;
+  delete: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.GROUPS.ID(id));
+    return response;
   },
-
-  getGroupMembers: async groupId => {
-    const response = await axiosClient.get(API_ENDPOINTS.GROUPS.MEMBERS(groupId));
-    return response.data;
+  getMembers: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.GROUPS.MEMBERS(id));
+    return response;
   },
-
-  addMember: async (groupId, userId) => {
-    const response = await axiosClient.post(API_ENDPOINTS.GROUPS.ADD_MEMBER(groupId), {
-      userId,
-    });
-    return response.data;
+  addMember: async (id, userId) => {
+    const response = await axiosClient.post(ENDPOINTS.GROUPS.MEMBERS(id), { userId });
+    return response;
   },
-
   removeMember: async (groupId, userId) => {
-    const response = await axiosClient.delete(
-      API_ENDPOINTS.GROUPS.REMOVE_MEMBER(groupId, userId),
-    );
-    return response.data;
+    const response = await axiosClient.delete(`${ENDPOINTS.GROUPS.MEMBERS(groupId)}/${userId}`);
+    return response;
   },
-
-  getGroupExpenses: async (groupId, page = 1, limit = 20) => {
-    const response = await axiosClient.get(API_ENDPOINTS.GROUPS.EXPENSES(groupId), {
-      params: {page, limit},
+  getExpenses: async (id, params) => {
+    const response = await axiosClient.get(ENDPOINTS.GROUPS.EXPENSES(id), { params });
+    return response;
+  },
+  getBalances: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.GROUPS.BALANCES(id));
+    return response;
+  },
+  settle: async (id) => {
+    const response = await axiosClient.post(ENDPOINTS.GROUPS.SETTLE(id));
+    return response;
+  },
+  uploadImage: async (id, formData) => {
+    const response = await axiosClient.post(ENDPOINTS.GROUPS.IMAGE(id), formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data;
+    return response;
   },
-
-  settleGroup: async (groupId, settlementData) => {
-    const response = await axiosClient.post(
-      API_ENDPOINTS.GROUPS.SETTLE(groupId),
-      settlementData,
-    );
-    return response.data;
+  deleteImage: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.GROUPS.IMAGE(id));
+    return response;
   },
 };
+
+export default groupsApi;

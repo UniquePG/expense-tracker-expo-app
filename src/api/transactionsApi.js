@@ -1,50 +1,39 @@
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export const transactionsApi = {
-  getTransactions: async (params = {}) => {
-    const {page = 1, limit = 20, type, category, startDate, endDate} = params;
-    const response = await axiosClient.get(API_ENDPOINTS.TRANSACTIONS.LIST, {
-      params: {page, limit, type, category, startDate, endDate},
-    });
-    return response.data;
+  createIncome: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.TRANSACTIONS.INCOME, data);
+    return response;
   },
-
-  createTransaction: async transactionData => {
-  console.log('transactionData api:',API_ENDPOINTS.TRANSACTIONS.CREATE, transactionData);
-    const response = await axiosClient.post(
-      API_ENDPOINTS.TRANSACTIONS.CREATE,
-      transactionData,
-    );
-    return response.data;
+  createExpense: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.TRANSACTIONS.EXPENSE, data);
+    return response;
   },
-
-  getTransactionDetails: async transactionId => {
-    const response = await axiosClient.get(
-      API_ENDPOINTS.TRANSACTIONS.DETAIL(transactionId),
-    );
-    return response.data;
+  createTransfer: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.TRANSACTIONS.TRANSFER, data);
+    return response;
   },
-
-  updateTransaction: async (transactionId, transactionData) => {
-    const response = await axiosClient.put(
-      API_ENDPOINTS.TRANSACTIONS.UPDATE(transactionId),
-      transactionData,
-    );
-    return response.data;
+  create: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.TRANSACTIONS.BASE, data);
+    return response;
   },
-
-  deleteTransaction: async transactionId => {
-    const response = await axiosClient.delete(
-      API_ENDPOINTS.TRANSACTIONS.DELETE(transactionId),
-    );
-    return response.data;
+  getAll: async (params) => {
+    const response = await axiosClient.get(ENDPOINTS.TRANSACTIONS.BASE, { params });
+    return response;
   },
-
-  getCategories: async type => {
-    const response = await axiosClient.get(API_ENDPOINTS.TRANSACTIONS.CATEGORIES, {
-      params: {type},
-    });
-    return response.data;
+  getById: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.TRANSACTIONS.ID(id));
+    return response;
+  },
+  update: async (id, data) => {
+    const response = await axiosClient.put(ENDPOINTS.TRANSACTIONS.ID(id), data);
+    return response;
+  },
+  delete: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.TRANSACTIONS.ID(id));
+    return response;
   },
 };
+
+export default transactionsApi;

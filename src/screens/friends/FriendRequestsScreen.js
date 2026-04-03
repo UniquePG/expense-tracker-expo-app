@@ -1,177 +1,146 @@
-import React from 'react';
-import {View, StyleSheet, FlatList, Alert} from 'react-native';
-import {Text, useTheme, Button, Avatar} from 'react-native-paper';
-import {useFriends} from '../../hooks/useFriends';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {Card} from '../../components/ui/Card';
-import {EmptyState} from '../../components/ui/EmptyState';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
-import {formatDate} from '../../utils/dateFormatter';
+import React, { useEffect } from 'react';
+import { View, StyleSheet, FlatList, Text, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { useFriends } from '../../hooks/useFriends';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import Header from '../../components/ui/Header';
+import Avatar from '../../components/ui/Avatar';
+import EmptyState from '../../components/ui/EmptyState';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { colors } from '../../constants/colors';
 
-export const FriendRequestsScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {
-    friendRequests,
-    isLoading,
-    acceptFriendRequest,
-    rejectFriendRequest,
-    refreshRequests,
-  } = useFriends();
+const FriendRequestsScreen = () => {
+  const { friendRequests, fetchFriends, acceptFriendRequest, rejectFriendRequest, isLoading } = useFriends();
 
-  const handleAccept = async (requestId) => {
+  useEffect(() => {
+    fetchFriends();
+  }, []);
+
+  const handleAccept = async (id) => {
     try {
-      await acceptFriendRequest(requestId);
+      await acceptFriendRequest(id);
+      Alert.alert('Success', 'Friend request accepted');
     } catch (error) {
       Alert.alert('Error', 'Failed to accept request');
     }
   };
 
-  const handleReject = async (requestId) => {
-    Alert.alert(
-      'Reject Request',
-      'Are you sure you want to reject this friend request?',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Reject',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await rejectFriendRequest(requestId);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to reject request');
-            }
-          },
-        },
-      ]
-    );
+  const handleReject = async (id) => {
+    try {
+      await rejectFriendRequest(id);
+      Alert.alert('Success', 'Friend request rejected');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to reject request');
+    }
   };
 
-  const renderRequestItem = ({item}) => {
-    const isIncoming = item.direction === 'incoming';
-    const user = isIncoming ? item.fromUser : item.toUser;
-
+  const RequestItem = ({ item }) => {
     return (
-      <Card style={styles.requestCard}>
-        <View style={styles.requestHeader}>
-          <Avatar.Text
-            size={48}
-            label={`${user.firstName[0]}${user.lastName[0]}`}
-            style={{backgroundColor: theme.colors.primary}}
-          />
-          <View style={styles.requestInfo}>
-            <Text style={[styles.userName, {color: theme.colors.text}]}>
-              {user.firstName} {user.lastName}
-            </Text>
-            <Text style={[styles.userEmail, {color: theme.colors.textSecondary}]}>
-              {user.email}
-            </Text>
-            <Text style={[styles.requestDate, {color: theme.colors.textDisabled}]}>
-              {isIncoming ? 'Received ' : 'Sent '}{formatDate(item.createdAt)}
-            </Text>
+      <View style={styles.item}>
+        <Avatar source={item.fromUserAvatar} name={item.fromUserName} size={50} radius={25} />
+        <View style={styles.itemContent}>
+          <Text style={styles.name}>{item.fromUserName}</Text>
+          <Text style={styles.email}>{item.fromUserEmail}</Text>
+          <View style={styles.actions}>
+            <TouchableOpacity 
+              style={[styles.actionBtn, styles.acceptBtn]} 
+              onPress={() => handleAccept(item.id)}
+            >
+              <Text style={styles.acceptText}>Accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionBtn, styles.rejectBtn]} 
+              onPress={() => handleReject(item.id)}
+            >
+              <Text style={styles.rejectText}>Reject</Text>
+            </TouchableOpacity>
           </View>
         </View>
-
-        {isIncoming ? (
-          <View style={styles.actions}>
-            <Button
-              mode="contained"
-              onPress={() => handleAccept(item.id)}
-              style={[styles.actionButton, {flex: 1}]}>
-              Accept
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={() => handleReject(item.id)}
-              style={[styles.actionButton, {flex: 1, marginLeft: 8}]}
-              textColor={theme.colors.error}>
-              Decline
-            </Button>
-          </View>
-        ) : (
-          <View style={styles.pendingBadge}>
-            <Text style={[styles.pendingText, {color: theme.colors.warning}]}>
-              Pending
-            </Text>
-          </View>
-        )}
-      </Card>
+      </View>
     );
   };
 
-  if (!isLoading && friendRequests.length === 0) {
-    return (
-      <ScreenWrapper safeArea={true}>
-        <Header title="Friend Requests" onBack={() => navigation.goBack()} />
-        <EmptyState
-          icon="account-check"
-          title="No pending requests"
-          message="You don't have any friend requests at the moment"
-        />
-      </ScreenWrapper>
-    );
-  }
-
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header title="Friend Requests" onBack={() => navigation.goBack()} />
-
+    <ScreenWrapper>
+      <Header title="Friend Requests" showBack />
       <FlatList
         data={friendRequests}
         keyExtractor={(item) => item.id}
-        renderItem={renderRequestItem}
-        contentContainerStyle={styles.listContent}
-        onRefresh={refreshRequests}
-        refreshing={isLoading}
+        renderItem={({ item }) => <RequestItem item={item} />}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={fetchFriends} colors={[colors.primary]} />
+        }
+        ListEmptyComponent={
+          !isLoading && (
+            <EmptyState
+              icon="account-question"
+              title="No Pending Requests"
+              description="You don't have any new friend requests at the moment."
+            />
+          )
+        }
       />
-
       <LoadingOverlay visible={isLoading && friendRequests.length === 0} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  requestCard: {
-    marginBottom: 12,
+  list: {
     padding: 16,
   },
-  requestHeader: {
+  item: {
     flexDirection: 'row',
-    alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.white,
+    borderRadius: 16,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  requestInfo: {
-    marginLeft: 12,
+  itemContent: {
     flex: 1,
+    marginLeft: 16,
   },
-  userName: {
+  name: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: colors.text,
   },
-  userEmail: {
-    fontSize: 14,
+  email: {
+    fontSize: 13,
+    color: colors.textSecondary,
     marginTop: 2,
-  },
-  requestDate: {
-    fontSize: 12,
-    marginTop: 4,
   },
   actions: {
     flexDirection: 'row',
+    marginTop: 12,
   },
-  actionButton: {
-    flex: 1,
+  actionBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 12,
   },
-  pendingBadge: {
-    alignItems: 'flex-end',
+  acceptBtn: {
+    backgroundColor: colors.primary,
   },
-  pendingText: {
-    fontSize: 14,
-    fontWeight: '500',
+  rejectBtn: {
+    backgroundColor: '#F3F4F6',
+  },
+  acceptText: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  rejectText: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+    fontSize: 13,
   },
 });
+
+export default FriendRequestsScreen;

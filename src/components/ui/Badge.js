@@ -1,41 +1,38 @@
 import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
-import {useTheme} from 'react-native-paper';
+import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '../../constants/colors';
 
-export const Badge = ({count, size = 20, style}) => {
-  const theme = useTheme();
-
-  if (!count || count <= 0) return null;
-
-  const displayCount = count > 99 ? '99+' : count.toString();
+const Badge = ({ count, size = 20, style }) => {
+  if (count === 0) return null;
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: theme.colors.error,
-        },
-        style,
-      ]}>
-      <Text style={[styles.text, {fontSize: size * 0.5}]}>{displayCount}</Text>
+    <View style={[
+      styles.container, 
+      { width: size, height: size, borderRadius: size / 2 },
+      style
+    ]}>
+      <Text style={[styles.text, { fontSize: size * 0.5 }]}>
+        {count > 99 ? '99+' : count}
+      </Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -5,
+    right: -5,
+    borderWidth: 2,
+    borderColor: colors.white,
   },
   text: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    color: colors.white,
+    fontWeight: '700',
   },
 });
+
+export default Badge;

@@ -1,42 +1,35 @@
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export const settlementsApi = {
-  getSettlements: async (params = {}) => {
-    const {page = 1, limit = 20, status, friendId} = params;
-    const response = await axiosClient.get(API_ENDPOINTS.SETTLEMENTS.LIST, {
-      params: {page, limit, status, friendId},
-    });
-    return response.data;
+  create: async (data) => {
+    const response = await axiosClient.post(ENDPOINTS.SETTLEMENTS.BASE, data);
+    return response;
   },
-
-  createSettlement: async settlementData => {
-    const response = await axiosClient.post(
-      API_ENDPOINTS.SETTLEMENTS.CREATE,
-      settlementData,
-    );
-    return response.data;
+  getAll: async (params) => {
+    const response = await axiosClient.get(ENDPOINTS.SETTLEMENTS.BASE, { params });
+    return response;
   },
-
-  getSettlementDetails: async settlementId => {
-    const response = await axiosClient.get(
-      API_ENDPOINTS.SETTLEMENTS.DETAIL(settlementId),
-    );
-    return response.data;
+  getById: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.SETTLEMENTS.ID(id));
+    return response;
   },
-
-  updateSettlement: async (settlementId, settlementData) => {
-    const response = await axiosClient.put(
-      API_ENDPOINTS.SETTLEMENTS.UPDATE(settlementId),
-      settlementData,
-    );
-    return response.data;
+  confirm: async (id) => {
+    const response = await axiosClient.post(ENDPOINTS.SETTLEMENTS.CONFIRM(id));
+    return response;
   },
-
-  deleteSettlement: async settlementId => {
-    const response = await axiosClient.delete(
-      API_ENDPOINTS.SETTLEMENTS.DELETE(settlementId),
-    );
-    return response.data;
+  remind: async (id, data) => {
+    const response = await axiosClient.post(ENDPOINTS.SETTLEMENTS.REMIND(id), data);
+    return response;
+  },
+  update: async (id, data) => {
+    const response = await axiosClient.put(ENDPOINTS.SETTLEMENTS.ID(id), data);
+    return response;
+  },
+  delete: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.SETTLEMENTS.ID(id));
+    return response;
   },
 };
+
+export default settlementsApi;

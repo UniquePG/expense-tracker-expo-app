@@ -1,17 +1,20 @@
-import {useEffect} from 'react';
+import { useState, useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import {useUIStore} from '../store/uiStore';
 
 export const useNetworkStatus = () => {
-  const {setOfflineStatus, isOffline} = useUIStore();
+  const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setOfflineStatus(!state.isConnected);
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsConnected(state.isConnected);
     });
 
-    return () => unsubscribe();
-  }, [setOfflineStatus]);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
-  return isOffline
+  return isConnected;
 };
+
+export default useNetworkStatus;

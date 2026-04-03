@@ -1,74 +1,41 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '../../constants/colors';
 import { formatDate } from '../../utils/dateFormatter';
+;
 
-export const DatePickerField = ({
-  label,
-  value,
-  onChange,
-  placeholder = 'Select date',
-  error,
-  style,
-  maximumDate,
-  minimumDate,
-}) => {
-  const theme = useTheme();
-  const [showPicker, setShowPicker] = useState(false);
+const DatePickerField = ({ label, value, onChange, error }) => {
+  const [show, setShow] = useState(false);
 
-  const handleChange = (event, selectedDate) => {
-    setShowPicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      onChange(selectedDate);
-    }
-  };
-
-  const showDatepicker = () => {
-    setShowPicker(true);
+  const handleDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || value;
+    setShow(Platform.OS === 'ios');
+    onChange(currentDate);
   };
 
   return (
-    <View style={[styles.container, style]}>
-      {label && (
-        <Text style={[styles.label, {color: theme.colors.text}]}>{label}</Text>
-      )}
-      <TouchableOpacity
-        onPress={showDatepicker}
-        style={[
-          styles.dateButton,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: error ? theme.colors.error : theme.colors.border,
-          },
-        ]}>
-        <Text
-          style={[
-            styles.dateText,
-            {
-              color: value ? theme.colors.text : theme.colors.placeholder,
-            },
-          ]}>
-          {value ? formatDate(value) : placeholder}
-        </Text>
-        <Icon
-          name="calendar"
-          size={20}
-          color={theme.colors.textSecondary}
-        />
+    <View style={styles.container}>
+      {label && <Text style={styles.label}>{label}</Text>}
+      <TouchableOpacity 
+        style={[styles.input, error && styles.errorBorder]} 
+        onPress={() => setShow(true)}
+      >
+        <Text style={styles.valueText}>{formatDate(value)}</Text>
+        <Icon name="calendar" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
-
-      {showPicker && (
+      
+      {show && (
         <DateTimePicker
-          value={value || new Date()}
+          value={value}
           mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleChange}
-          maximumDate={maximumDate}
-          minimumDate={minimumDate}
+          display="default"
+          onChange={handleDateChange}
         />
       )}
+      
+      {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 };
@@ -76,22 +43,37 @@ export const DatePickerField = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
+    width: '100%',
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
   },
-  dateButton: {
+  input: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 48,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 52,
+    backgroundColor: colors.surface,
   },
-  dateText: {
+  valueText: {
     fontSize: 16,
+    color: colors.text,
+  },
+  errorBorder: {
+    borderColor: colors.error,
+  },
+  errorText: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: 4,
   },
 });
+
+export default DatePickerField;

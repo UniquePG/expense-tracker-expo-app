@@ -1,333 +1,168 @@
-import React, {useState, useEffect} from 'react';
-import {
-  View,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import {Text, useTheme, Snackbar, RadioButton} from 'react-native-paper';
-import {useForm, Controller} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {settlementSchema} from '../../utils/validationSchemas';
-import {useFriends} from '../../hooks/useFriends';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {InputField} from '../../components/inputs/InputField';
-import {CurrencyInput} from '../../components/inputs/CurrencyInput';
-import {DatePickerField} from '../../components/inputs/DatePickerField';
-import {SelectField} from '../../components/inputs/SelectField';
-import {Button} from '../../components/buttons/Button';
-import {Avatar} from '../../components/ui/Avatar';
-import {Card} from '../../components/ui/Card';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
-import {formatCurrency} from '../../utils/formatCurrency';
-import { useSettlementsStore } from '@/store';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Text, Alert } from 'react-native';
+import { useFriends } from '../../hooks/useFriends';
+import { useSettlements } from '../../hooks/useSettlements';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import Header from '../../components/ui/Header';
+import SelectField from '../../components/inputs/SelectField';
+import CurrencyInput from '../../components/inputs/CurrencyInput';
+import DatePickerField from '../../components/inputs/DatePickerField';
+import InputField from '../../components/inputs/InputField';
+import Button from '../../components/buttons/Button';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { colors } from '../../constants/colors';
+import Avatar from '../../components/ui/Avatar';
 
-export const SettleDebtScreen = ({navigation, route}) => {
-  const {friendId} = route.params || {};
-  const theme = useTheme();
-  const {createSettlement} = useSettlementsStore();
-  const {friends, balances, fetchFriends} = useFriends({autoFetch: true});
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-
-  const {
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: {errors},
-  } = useForm({
-    resolver: zodResolver(settlementSchema),
-    defaultValues: {
-      amount: 0,
-      toUserId: friendId || '',
-      note: '',
-      date: new Date(),
-    },
-  });
-
-  const selectedFriendId = watch('toUserId');
-  const amount = watch('amount');
+const SettleDebtScreen = ({ route, navigation }) => {
+  const { friendId: initialFriendId } = route.params || {};
+  const { friends, fetchFriends } = useFriends();
+  const { createSettlement, isLoading: settlementLoading } = useSettlements();
+  
+  const [friendId, setFriendId] = useState(initialFriendId || '');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(new Date());
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    if (selectedFriendId) {
-      const balance = balances.find(b => b.friendId === selectedFriendId);
-      if (balance && balance.amount < 0) {
-        // You owe this friend, suggest full amount
-        setValue('amount', Math.abs(balance.amount));
-      }
+    fetchFriends();
+  }, []);
+
+  const handleSettle = async () => {
+    if (!friendId) {
+      Alert.alert('Error', 'Please select a friend');
+      return;
     }
-  }, [selectedFriendId, balances, setValue]);
+    if (!amount || parseFloat(amount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
 
-  const onSubmit = async (data) => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const settlementData = {
-        ...data,
-        amount: parseFloat(data.amount),
-        paymentMethod,
-      };
-
-      await createSettlement(settlementData);
-      
-      Alert.alert(
-        'Settlement Recorded',
-        'Your payment has been recorded and is pending confirmation.',
-        [{text: 'OK', onPress: () => navigation.goBack()}]
-      );
-    } catch (err) {
-      setError(err.message || 'Failed to record settlement');
-    } finally {
-      setIsLoading(false);
+      await createSettlement({
+        toUserId: friendId,
+        amount: parseFloat(amount),
+        date: date.toISOString(),
+        notes,
+      });
+      Alert.alert('Success', 'Settlement recorded successfully');
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to record settlement');
     }
   };
 
-  const friendOptions = friends
-    .filter(f => {
-      const balance = balances.find(b => b.friendId === f.id);
-      return balance && balance.amount < 0; // Only show friends you owe
-    })
-    .map(f => ({
-      label: `${f.firstName} ${f.lastName} (${formatCurrency(Math.abs(balances.find(b => b.friendId === f.id)?.amount || 0))})`,
-      value: f.id,
-    }));
+  const friendOptions = friends.map((f) => ({
+    label: f.name,
+    value: f.id,
+    avatar: f.avatar,
+  }));
 
-  const selectedFriend = friends.find(f => f.id === selectedFriendId);
-  const balance = balances.find(b => b.friendId === selectedFriendId);
+  const selectedFriend = friends.find((f) => f.id === friendId);
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Record Payment"
-        onBack={() => navigation.goBack()}
-      />
+    <ScreenWrapper>
+      <Header title="Settle Up" showBack />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Record a Payment</Text>
+          <Text style={styles.subtitle}>Keep track of payments you&apos;ve made to your friends.</Text>
+        </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          
-          {friendOptions.length === 0 ? (
-            <Card style={styles.noDebtsCard}>
-              <Text style={[styles.noDebtsText, {color: theme.colors.text}]}>
-                You don't owe anyone money right now!
+        <SelectField
+          label="Select Friend"
+          value={friendId}
+          onValueChange={setFriendId}
+          options={friendOptions}
+          placeholder="Who did you pay?"
+        />
+
+        {selectedFriend && (
+          <View style={styles.balanceInfo}>
+            <Avatar source={selectedFriend.avatar} name={selectedFriend.name} size={40} radius={20} />
+            <View style={styles.balanceText}>
+              <Text style={styles.balanceLabel}>Current Balance</Text>
+              <Text style={[styles.balanceValue, { color: selectedFriend.balance >= 0 ? colors.success : colors.error }]}>
+                {selectedFriend.balance >= 0 ? 'Owes you' : 'You owe'} ${Math.abs(selectedFriend.balance).toFixed(2)}
               </Text>
-              <Text style={[styles.noDebtsSubtext, {color: theme.colors.textSecondary}]}>
-                All your debts are settled.
-              </Text>
-            </Card>
-          ) : (
-            <>
-              <Controller
-                control={control}
-                name="toUserId"
-                render={({field: {onChange, value}}) => (
-                  <SelectField
-                    label="Paying To"
-                    value={value}
-                    options={friendOptions}
-                    onSelect={onChange}
-                    placeholder="Select a friend you owe"
-                    error={errors.toUserId?.message}
-                  />
-                )}
-              />
+            </View>
+          </View>
+        )}
 
-              {selectedFriend && (
-                <Card style={styles.friendCard}>
-                  <View style={styles.friendRow}>
-                    <Avatar
-                      source={selectedFriend.avatar ? {uri: selectedFriend.avatar} : null}
-                      firstName={selectedFriend.firstName}
-                      lastName={selectedFriend.lastName}
-                      size={48}
-                    />
-                    <View style={styles.friendInfo}>
-                      <Text style={[styles.friendName, {color: theme.colors.text}]}>
-                        {selectedFriend.firstName} {selectedFriend.lastName}
-                      </Text>
-                      <Text style={[styles.friendBalance, {color: theme.colors.expense}]}>
-                        You owe: {formatCurrency(Math.abs(balance?.amount || 0))}
-                      </Text>
-                    </View>
-                  </View>
-                </Card>
-              )}
+        <CurrencyInput
+          label="Amount Paid"
+          value={amount}
+          onChangeValue={setAmount}
+          placeholder="0.00"
+        />
 
-              <Controller
-                control={control}
-                name="amount"
-                render={({field: {onChange, value}}) => (
-                  <CurrencyInput
-                    label="Amount"
-                    value={value}
-                    onChange={onChange}
-                    error={errors.amount?.message}
-                  />
-                )}
-              />
+        <DatePickerField
+          label="Date of Payment"
+          value={date}
+          onChange={setDate}
+        />
 
-              {balance && amount > Math.abs(balance.amount) && (
-                <Text style={[styles.warning, {color: theme.colors.warning}]}>
-                  This exceeds your debt of {formatCurrency(Math.abs(balance.amount))}
-                </Text>
-              )}
+        <InputField
+          label="Notes (Optional)"
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="What was this for?"
+          multiline
+          numberOfLines={3}
+        />
 
-              <Controller
-                control={control}
-                name="date"
-                render={({field: {onChange, value}}) => (
-                  <DatePickerField
-                    label="Payment Date"
-                    value={value}
-                    onChange={onChange}
-                    error={errors.date?.message}
-                  />
-                )}
-              />
-
-              <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-                Payment Method
-              </Text>
-
-              <View style={styles.paymentMethods}>
-                {['cash', 'bank_transfer', 'paypal', 'venmo', 'other'].map((method) => (
-                  <TouchableOpacity
-                    key={method}
-                    style={[
-                      styles.methodButton,
-                      paymentMethod === method && {backgroundColor: theme.colors.primary, borderColor: theme.colors.primary},
-                    ]}
-                    onPress={() => setPaymentMethod(method)}>
-                    <Text
-                      style={[
-                        styles.methodText,
-                        {color: paymentMethod === method ? '#FFFFFF' : theme.colors.text},
-                      ]}>
-                      {method.replace('_', ' ').toUpperCase()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Controller
-                control={control}
-                name="note"
-                render={({field: {onChange, value}}) => (
-                  <InputField
-                    label="Note (Optional)"
-                    placeholder="e.g., Paid in cash, Transaction ID, etc."
-                    value={value}
-                    onChangeText={onChange}
-                    leftIcon="note-text"
-                    multiline
-                    numberOfLines={2}
-                    error={errors.note?.message}
-                  />
-                )}
-              />
-
-              <Button
-                title="Record Payment"
-                onPress={handleSubmit(onSubmit)}
-                loading={isLoading}
-                disabled={isLoading}
-                style={styles.submitButton}
-              />
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <LoadingOverlay visible={isLoading} message="Recording..." />
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={3000}
-        action={{label: 'Dismiss', onPress: () => setError(null)}}>
-        {error}
-      </Snackbar>
+        <Button 
+          title="Record Payment" 
+          onPress={handleSettle} 
+          loading={settlementLoading} 
+          style={styles.button}
+        />
+      </ScrollView>
+      <LoadingOverlay visible={settlementLoading} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  noDebtsCard: {
+  content: {
     padding: 24,
-    alignItems: 'center',
   },
-  noDebtsText: {
-    fontSize: 18,
-    fontWeight: '600',
+  header: {
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 8,
   },
-  noDebtsSubtext: {
-    fontSize: 14,
+  subtitle: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    lineHeight: 22,
   },
-  friendCard: {
-    marginBottom: 16,
-    padding: 16,
-  },
-  friendRow: {
+  balanceInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    marginBottom: 24,
   },
-  friendInfo: {
+  balanceText: {
     marginLeft: 12,
   },
-  friendName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  friendBalance: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  warning: {
+  balanceLabel: {
     fontSize: 12,
-    marginTop: -12,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
+    color: colors.textSecondary,
     fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 12,
   },
-  paymentMethods: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+  balanceValue: {
+    fontSize: 14,
+    fontWeight: '700',
   },
-  methodButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  methodText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  submitButton: {
+  button: {
     marginTop: 24,
   },
 });
+
+export default SettleDebtScreen;

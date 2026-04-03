@@ -1,43 +1,35 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { colors } from '../../constants/colors';
+;
 
-export const Header = ({
-  title,
-  subtitle,
-  onBack,
-  rightAction,
-  rightIcon,
-  onRightPress,
-  style,
-}) => {
-  const theme = useTheme();
+const Header = ({ title, showBack = false, rightElement, onBackPress }) => {
+  const navigation = useNavigation();
+
+  const handleBack = () => {
+    if (onBackPress) {
+      onBackPress();
+    } else {
+      navigation.goBack();
+    }
+  };
 
   return (
-    <View style={[styles.container, {backgroundColor: theme.colors.surface}, style]}>
-      <View style={styles.leftContainer}>
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-left" size={24} color={theme.colors.text} />
+    <View style={styles.container}>
+      <View style={styles.left}>
+        {showBack && (
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Icon name="arrow-left" size={24} color={colors.text} />
           </TouchableOpacity>
         )}
-        <View style={styles.titleContainer}>
-          <Text style={[styles.title, {color: theme.colors.text}]} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle && (
-            <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          )}
-        </View>
       </View>
-      
-      {rightIcon && (
-        <TouchableOpacity onPress={onRightPress} style={styles.rightButton}>
-          <Icon name={rightIcon} size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
-      )}
+      <View style={styles.center}>
+        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+      </View>
+      <View style={styles.right}>
+        {rightElement}
+      </View>
     </View>
   );
 };
@@ -47,36 +39,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    height: 60,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  leftContainer: {
-    flexDirection: 'row',
+  left: {
+    width: 40,
+    alignItems: 'flex-start',
+  },
+  center: {
+    flex: 1,
     alignItems: 'center',
-    flex: 1,
   },
-  backButton: {
-    marginRight: 16,
-    padding: 4,
-  },
-  titleContainer: {
-    flex: 1,
+  right: {
+    width: 40,
+    alignItems: 'flex-end',
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
   },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  rightButton: {
+  backButton: {
     padding: 4,
-    marginLeft: 16,
   },
 });
+
+export default Header;

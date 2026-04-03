@@ -1,13 +1,14 @@
-import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import {STORAGE_KEYS} from '../constants/constants';
+
 
 class Storage {
   // Generic AsyncStorage methods
-  async setItem(key = ".", value) {
+  async setItem(key, value) {
     try {
       const jsonValue = JSON.stringify(value);
-      // await AsyncStorage.setItem(key, jsonValue);
+      await AsyncStorage.setItem(key, jsonValue);
       return true;
     } catch (error) {
       console.error('Error saving data:', error);
@@ -23,7 +24,7 @@ class Storage {
     } catch (error) {
       console.error('Error reading data:', error);
       return null;
-    }x
+    }
   }
 
   async removeItem(key) {
@@ -47,7 +48,7 @@ class Storage {
   }
 
   // Secure storage for sensitive data using Expo SecureStore
-  async setSecureItem(key = ".", value) {
+  async setSecureItem(key, value) {
     try {
       await SecureStore.setItemAsync(key, value);
       return true;

@@ -1,240 +1,119 @@
-import React, {useState} from 'react';
-import {View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
-import {Text, useTheme, Snackbar} from 'react-native-paper';
-import {useForm, Controller} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {registerSchema} from '../../utils/validationSchemas';
-import {useAuth} from '../../hooks/useAuth';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {InputField} from '../../components/inputs/InputField';
-import {Button} from '../../components/buttons/Button';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
+import { authApi } from '../../api';
+import Button from '../../components/buttons/Button';
+import InputField from '../../components/inputs/InputField';
+import { colors } from '../../constants/colors';
+;
 
-export const RegisterScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {register, isLoading} = useAuth();
-  const [secureTextEntry, setSecureTextEntry] = useState(true);
-  const [secureConfirmEntry, setSecureConfirmEntry] = useState(true);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
-
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-    },
+const RegisterScreen = ({ navigation }) => {
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
   });
+  const [loading, setLoading] = useState(false);
 
-  const onSubmit = async data => {
+  const handleRegister = async () => {
+    setLoading(true);
     try {
-      setError(null);
-      console.log('data :', data);
-      await register({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        password: data.password,
-      });
-      setSuccess(true);
-      setTimeout(() => {
-        navigation.navigate('Login');
-      }, 2000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      await authApi.register(form);
+      Toast.show({ type: 'success', text1: 'Account created!', text2: 'Please verify your email to continue.' });
+      navigation.navigate('Login');
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Registration failed' });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          
-          <View style={styles.header}>
-            <Text style={[styles.title, {color: theme.colors.primary}]}>
-              Create Account
-            </Text>
-            <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-              Sign up to get started
-            </Text>
-          </View>
+    <ScrollView contentContainerStyle={styles.container}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <Icon name="arrow-left" size={24} color={colors.text} />
+      </TouchableOpacity>
 
-          <View style={styles.form}>
-            <Controller
-              control={control}
-              name="firstName"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="First Name"
-                  placeholder="Enter your first name"
-                  value={value}
-                  onChangeText={onChange}
-                  autoCapitalize="words"
-                  leftIcon="account"
-                  error={errors.firstName?.message}
-                />
-              )}
-            />
+      <Text style={styles.title}>Join SpendWise</Text>
+      <Text style={styles.subtitle}>Start managing your finances smarter today.</Text>
 
-            <Controller
-              control={control}
-              name="lastName"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="Last Name"
-                  placeholder="Enter your last name"
-                  value={value}
-                  onChangeText={onChange}
-                  autoCapitalize="words"
-                  leftIcon="account"
-                  error={errors.lastName?.message}
-                />
-              )}
-            />
+      <View style={styles.row}>
+        <View style={styles.half}>
+          <InputField label="First Name" placeholder="e.g. John" value={form.firstName} onChangeText={(t) => setForm({...form, firstName: t})} />
+        </View>
+        <View style={styles.half}>
+          <InputField label="Last Name" placeholder="e.g. Doe" value={form.lastName} onChangeText={(t) => setForm({...form, lastName: t})} />
+        </View>
+      </View>
 
-            <Controller
-              control={control}
-              name="email"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="Email"
-                  placeholder="Enter your email"
-                  value={value}
-                  onChangeText={onChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  leftIcon="email"
-                  error={errors.email?.message}
-                />
-              )}
-            />
+      <InputField label="Email Address" placeholder="name@example.com" value={form.email} onChangeText={(t) => setForm({...form, email: t})} />
+      <InputField label="Phone Number" placeholder="+1 (555) 000-0000" value={form.phone} onChangeText={(t) => setForm({...form, phone: t})} />
+      <InputField label="Password" placeholder="Create a strong password" secureTextEntry value={form.password} onChangeText={(t) => setForm({...form, password: t})} />
 
-            <Controller
-              control={control}
-              name="password"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="Password"
-                  placeholder="Create a password"
-                  value={value}
-                  onChangeText={onChange}
-                  secureTextEntry={secureTextEntry}
-                  leftIcon="lock"
-                  rightIcon={secureTextEntry ? 'eye-off' : 'eye'}
-                  onRightPress={() => setSecureTextEntry(!secureTextEntry)}
-                  error={errors.password?.message}
-                />
-              )}
-            />
+      <Text style={styles.hint}>Must be at least 8 characters long.</Text>
 
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({field: {onChange, value}}) => (
-                <InputField
-                  label="Confirm Password"
-                  placeholder="Confirm your password"
-                  value={value}
-                  onChangeText={onChange}
-                  secureTextEntry={secureConfirmEntry}
-                  leftIcon="lock-check"
-                  rightIcon={secureConfirmEntry ? 'eye-off' : 'eye'}
-                  onRightPress={() => setSecureConfirmEntry(!secureConfirmEntry)}
-                  error={errors.confirmPassword?.message}
-                />
-              )}
-            />
+      <Button title="Create Account" onPress={handleRegister} loading={loading} />
 
-            <Button
-              title="Create Account"
-              onPress={handleSubmit(onSubmit)}
-              loading={isLoading}
-              disabled={isLoading}
-              style={styles.registerButton}
-            />
-          </View>
-
-          <View style={styles.footer}>
-            <Text style={{color: theme.colors.textSecondary}}>
-              Already have an account?{' '}
-            </Text>
-            <Button
-              title="Sign In"
-              variant="ghost"
-              onPress={() => navigation.navigate('Login')}
-              textStyle={{color: theme.colors.primary}}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <LoadingOverlay visible={isLoading} message="Creating account..." />
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={3000}
-        action={{
-          label: 'Dismiss',
-          onPress: () => setError(null),
-        }}>
-        {error}
-      </Snackbar>
-
-      <Snackbar
-        visible={success}
-        onDismiss={() => setSuccess(false)}
-        duration={2000}
-        style={{backgroundColor: theme.colors.success}}>
-        Account created successfully! Redirecting to login...
-      </Snackbar>
-    </ScreenWrapper>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Already have an account? </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.loginText}>Log In</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
     padding: 24,
+    backgroundColor: colors.white,
+    flexGrow: 1,
   },
-  header: {
-    marginTop: 24,
-    marginBottom: 32,
-    alignItems: 'center',
+  backBtn: {
+    marginTop: 40,
+    marginBottom: 20,
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 32,
   },
-  form: {
-    width: '100%',
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  registerButton: {
-    marginTop: 8,
+  half: {
+    width: '48%',
+  },
+  hint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 24,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 24,
+    marginTop: 24,
+  },
+  footerText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  loginText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
   },
 });
+
+export default RegisterScreen;

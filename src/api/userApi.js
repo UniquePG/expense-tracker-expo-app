@@ -1,52 +1,42 @@
-import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import storage from '../utils/storage';
+import axiosClient from './axiosClient';
 
 export const userApi = {
-  getCurrentUser: async () => {
-    const response = await axiosClient.get(API_ENDPOINTS.USERS.ME);
-    return response.data;
+  getProfile: async () => {
+    const response = await axiosClient.get(ENDPOINTS.USERS.ME);
+    if(response.success && response.data) {
+      const {user} = response.data;
+      await storage.setUserData(user);
+    }
+    return response;
   },
-
-  updateProfile: async userData => {
-    const response = await axiosClient.put(API_ENDPOINTS.USERS.UPDATE, userData);
-    await storage.setUserData(response.data.data);
-    return response.data;
+  updateProfile: async (data) => {
+    const response = await axiosClient.put(ENDPOINTS.USERS.ME, data);
+    return response;
   },
-
-  changePassword: async (currentPassword, newPassword) => {
-    const response = await axiosClient.post(API_ENDPOINTS.USERS.CHANGE_PASSWORD, {
-      currentPassword,
-      newPassword,
+  uploadAvatar: async (formData) => {
+    const response = await axiosClient.post(ENDPOINTS.USERS.AVATAR, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data;
+    return response;
   },
-
-  uploadAvatar: async imageFile => {
-    const formData = new FormData();
-    formData.append('avatar', {
-      uri: imageFile.uri,
-      type: imageFile.type,
-      name: imageFile.fileName || 'avatar.jpg',
-    });
-
-    const response = await axiosClient.post(API_ENDPOINTS.USERS.UPLOAD_AVATAR, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+  deleteAvatar: async () => {
+    const response = await axiosClient.delete(ENDPOINTS.USERS.AVATAR);
+    return response;
   },
-
+  searchUsers: async (params) => {
+    const response = await axiosClient.get(ENDPOINTS.USERS.SEARCH, { params });
+    return response;
+  },
+  getUserById: async (id) => {
+    const response = await axiosClient.get(ENDPOINTS.USERS.ID(id));
+    return response;
+  },
   deleteAccount: async () => {
-    const response = await axiosClient.delete(API_ENDPOINTS.USERS.DELETE_ACCOUNT);
-    return response.data;
-  },
-
-  searchUsers: async (query, page = 1, limit = 20) => {
-    const response = await axiosClient.get(API_ENDPOINTS.USERS.SEARCH, {
-      params: {q: query, page, limit},
-    });
-    return response.data;
+    const response = await axiosClient.delete(ENDPOINTS.USERS.ME);
+    return response;
   },
 };
+
+export default userApi;

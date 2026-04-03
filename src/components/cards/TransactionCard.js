@@ -1,70 +1,49 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
-import { formatShortDate } from '../../utils/dateFormatter';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '../../constants/colors';
+import { formatDate } from '../../utils/dateFormatter';
 import { formatCurrency } from '../../utils/formatCurrency';
-import { Card } from '../ui/Card';
+;
 
-export const TransactionCard = ({
-  transaction,
-  onPress,
-  showDate = true,
-  style,
-}) => {
-  const theme = useTheme();
-  const {description, amount, type, category, date, user} = transaction;
-  
-  const isIncome = type === 'income';
-  const amountColor = isIncome ? theme.colors.income : theme.colors.expense;
-  const iconName = category?.icon || (isIncome ? 'arrow-down' : 'arrow-up');
+const TransactionCard = ({ transaction, onPress }) => {
+  const { description, amount, type, transactionDate } = transaction;
+  const isIncome = type === 'INCOME';
 
   return (
-    <Card onPress={onPress} style={[styles.container, style]}>
-      <View style={styles.row}>
-        <View
-          style={[
-            styles.iconContainer,
-            {backgroundColor: isIncome ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)'},
-          ]}>
-          <Icon
-            name={iconName}
-            size={24}
-            color={amountColor}
-          />
-        </View>
-        
-        <View style={styles.content}>
-          <Text style={[styles.description, {color: theme.colors.text}]} numberOfLines={1}>
-            {description}
-          </Text>
-          <Text style={[styles.category, {color: theme.colors.textSecondary}]}>
-            {category?.name || (isIncome ? 'Income' : 'Expense')}
-          </Text>
-        </View>
-
-        <View style={styles.rightContent}>
-          <Text style={[styles.amount, {color: amountColor}]}>
-            {isIncome ? '+' : '-'}{formatCurrency(amount, transaction.currency)}
-          </Text>
-          {showDate && (
-            <Text style={[styles.date, {color: theme.colors.textSecondary}]}>
-              {formatShortDate(date)}
-            </Text>
-          )}
-        </View>
+    <TouchableOpacity style={styles.container} onPress={onPress}>
+      <View style={[styles.iconContainer, { backgroundColor: isIncome ? '#ECFDF5' : '#FEF2F2' }]}>
+        <Icon 
+          name={isIncome ? 'arrow-down-bold' : 'arrow-up-bold'} 
+          size={24} 
+          color={isIncome ? colors.success : colors.error} 
+        />
       </View>
-    </Card>
+      <View style={styles.content}>
+        <Text style={styles.description}>{description}</Text>
+        <Text style={styles.date}>{formatDate(transactionDate)}</Text>
+      </View>
+      <View style={styles.amountContainer}>
+        <Text style={[styles.amount, { color: isIncome ? colors.success : colors.error }]}>
+          {isIncome ? '+' : '-'}{formatCurrency(amount)}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginVertical: 4,
-  },
-  row: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   iconContainer: {
     width: 48,
@@ -72,28 +51,28 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   content: {
     flex: 1,
   },
   description: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: colors.text,
   },
-  category: {
-    fontSize: 12,
+  date: {
+    fontSize: 13,
+    color: colors.textSecondary,
     marginTop: 2,
   },
-  rightContent: {
+  amountContainer: {
     alignItems: 'flex-end',
   },
   amount: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  date: {
-    fontSize: 12,
-    marginTop: 2,
+    fontWeight: '700',
   },
 });
+
+export default TransactionCard;

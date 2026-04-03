@@ -1,356 +1,227 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import { Button, Text, useTheme } from 'react-native-paper';
-import { Avatar } from '../../components/ui/Avatar';
-import { Card } from '../../components/ui/Card';
-import { Divider } from '../../components/ui/Divider';
-import { Header } from '../../components/ui/Header';
-import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
-import { useAuth } from '../../hooks/useAuth';
-import { useUIStore } from '../../store/uiStore';
+import { useEffect } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Avatar from '../../components/ui/Avatar';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { colors } from '../../constants/colors';
+import { useAuthStore } from '../../store/authStore';
 import { useUserStore } from '../../store/userStore';
+;
 
-export const ProfileScreen = ({navigation}) => {
-  const theme = useTheme();
-  const {logout} = useAuth();
-  const {profile, fetchProfile} = useUserStore();
-  const {theme: appTheme, toggleTheme} = useUIStore();
-  const [isLoading, setIsLoading] = useState(false);
+const ProfileScreen = ({ navigation }) => {
+  const logout = useAuthStore((state) => state.logout);
+  const { profile, isLoading, fetchProfile } = useUserStore();
+  // console.log('profile :', profile);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  useEffect(()=>{
+    fetchProfile()
+  },[])
 
   const handleLogout = () => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
       [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await logout();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout');
-            } finally {
-              setIsLoading(false);
-            }
-          },
-        },
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: logout },
       ]
     );
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This action cannot be undone. All your data will be permanently deleted.',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            // Navigate to confirmation screen with password required
-          },
-        },
-      ]
-    );
-  };
-
-  const menuItems = [
-    {
-      icon: 'account-edit',
-      title: 'Edit Profile',
-      subtitle: 'Update your personal information',
-      onPress: () => navigation.navigate('EditProfile'),
-    },
-    {
-      icon: 'lock',
-      title: 'Change Password',
-      subtitle: 'Update your security settings',
-      onPress: () => navigation.navigate('ChangePassword'),
-    },
-    {
-      icon: 'bell',
-      title: 'Notifications',
-      subtitle: 'Manage your notification preferences',
-      onPress: () => navigation.navigate('NotificationSettings'),
-    },
-    {
-      icon: 'currency-usd',
-      title: 'Currency Settings',
-      subtitle: 'Set your default currency',
-      onPress: () => navigation.navigate('CurrencySettings'),
-    },
-    {
-      icon: theme.dark ? 'white-balance-sunny' : 'moon-waning-crescent',
-      title: 'Theme',
-      subtitle: `Currently ${appTheme} mode`,
-      onPress: toggleTheme,
-    },
-    {
-      icon: 'help-circle',
-      title: 'Help & Support',
-      subtitle: 'Get help or contact us',
-      onPress: () => {/* Open help */},
-    },
-    {
-      icon: 'file-document',
-      title: 'Privacy Policy',
-      onPress: () => {/* Open privacy policy */},
-    },
-    {
-      icon: 'file-document',
-      title: 'Terms of Service',
-      onPress: () => {/* Open terms */},
-    },
-  ];
-
-  if (!profile) {
-    return <LoadingOverlay visible={true} />;
-  }
+  const MenuItem = ({ icon, title, subtitle, onPress, color = colors.primary }) => (
+    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
+      <View style={[styles.menuIconContainer, { backgroundColor: `${color}15` }]}>
+        <Icon name={icon} size={24} color={color} />
+      </View>
+      <View style={styles.menuTextContainer}>
+        <Text style={styles.menuTitle}>{title}</Text>
+        {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
+      </View>
+      <Icon name="chevron-right" size={24} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Profile"
-        rightIcon="cog"
-        onRightPress={() => navigation.navigate('Settings')}
-      />
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.profileHeader}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('EditProfile')}
-            style={styles.avatarContainer}>
-            <Avatar
-              source={profile.avatar ? {uri: profile.avatar} : null}
-              firstName={profile.firstName}
-              lastName={profile.lastName}
-              size={100}
-            />
-            <View style={[styles.editBadge, {backgroundColor: theme.colors.primary}]}>
-              <Icon name="camera" size={16} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-          
-          <Text style={[styles.name, {color: theme.colors.text}]}>
-            {profile.firstName} {profile.lastName}
-          </Text>
-          <Text style={[styles.email, {color: theme.colors.textSecondary}]}>
-            {profile.email}
-          </Text>
-          
-          {profile.phone && (
-            <Text style={[styles.phone, {color: theme.colors.textSecondary}]}>
-              {profile.phone}
-            </Text>
-          )}
-        </View>
-
-        <Card style={styles.statsCard}>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, {color: theme.colors.primary}]}>
-                {profile.totalExpenses || 0}
-              </Text>
-              <Text style={[styles.statLabel, {color: theme.colors.textSecondary}]}>
-                Expenses
-              </Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, {color: theme.colors.primary}]}>
-                {profile.totalGroups || 0}
-              </Text>
-              <Text style={[styles.statLabel, {color: theme.colors.textSecondary}]}>
-                Groups
-              </Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, {color: theme.colors.primary}]}>
-                {profile.totalFriends || 0}
-              </Text>
-              <Text style={[styles.statLabel, {color: theme.colors.textSecondary}]}>
-                Friends
-              </Text>
-            </View>
-          </View>
-        </Card>
-
-        <View style={styles.menuSection}>
-          {menuItems.map((item, index) => (
-            <React.Fragment key={item.title}>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={item.onPress}>
-                <View style={[styles.menuIcon, {backgroundColor: theme.colors.primaryLight}]}>
-                  <Icon name={item.icon} size={20} color={theme.colors.primary} />
-                </View>
-                <View style={styles.menuContent}>
-                  <Text style={[styles.menuTitle, {color: theme.colors.text}]}>
-                    {item.title}
-                  </Text>
-                  {item.subtitle && (
-                    <Text style={[styles.menuSubtitle, {color: theme.colors.textSecondary}]}>
-                      {item.subtitle}
-                    </Text>
-                  )}
-                </View>
-                <Icon name="chevron-right" size={20} color={theme.colors.textDisabled} />
-              </TouchableOpacity>
-              {index < menuItems.length - 1 && <Divider style={styles.menuDivider} />}
-            </React.Fragment>
-          ))}
-        </View>
-
-        <Button
-          mode="outlined"
-          onPress={handleLogout}
-          style={[styles.logoutButton, {borderColor: theme.colors.error}]}
-          textColor={theme.colors.error}
-          icon="logout">
-          Logout
-        </Button>
-
-        <TouchableOpacity
-          onPress={handleDeleteAccount}
-          style={styles.deleteAccount}>
-          <Text style={[styles.deleteText, {color: theme.colors.error}]}>
-            Delete Account
-          </Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate('NotificationSettings')}>
+          <Icon name="bell-outline" size={24} color={colors.text} />
         </TouchableOpacity>
+      </View>
 
-        <Text style={[styles.version, {color: theme.colors.textDisabled}]}>
-          Version 1.0.0
-        </Text>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={styles.profileInfo}>
+          <Avatar 
+            source={profile?.avatar} 
+            name={profile?.firstName || 'User'} 
+            size={120} 
+            radius={60}
+          />
+          <Text style={styles.name}>{profile?.firstName || 'Loading...'}</Text>
+          <Text style={styles.email}>{profile?.email || ''}</Text>
+          <TouchableOpacity 
+            style={styles.editBtn}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Text style={styles.editBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>GENERAL</Text>
+          <MenuItem 
+            icon="account-cog-outline" 
+            title="Account Settings" 
+            onPress={() => navigation.navigate('EditProfile')}
+          />
+          <MenuItem 
+            icon="account-multiple-outline" 
+            title="Friends" 
+            onPress={() => navigation.navigate('Friends')} 
+          />
+          <MenuItem 
+            icon="lock-outline" 
+            title="Security" 
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>PREFERENCES</Text>
+          <MenuItem 
+            icon="cash-multiple" 
+            title="Currency Preferences" 
+            subtitle={profile?.currency || 'USD'} 
+            onPress={() => navigation.navigate('CurrencySettings')}
+          />
+          <MenuItem 
+            icon="bell-outline" 
+            title="Notifications" 
+            onPress={() => navigation.navigate('NotificationSettings')}
+          />
+          <MenuItem icon="help-circle-outline" title="Help & Support" />
+        </View>
+
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Icon name="logout" size={20} color={colors.error} />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </ScrollView>
-
       <LoadingOverlay visible={isLoading} />
-    </ScreenWrapper>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 32,
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
-  profileHeader: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
   },
-  avatarContainer: {
-    position: 'relative',
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
   },
-  editBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+  content: {
+    flex: 1,
+  },
+  profileInfo: {
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    paddingVertical: 20,
   },
   name: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: colors.text,
     marginTop: 16,
+    marginBottom: 4,
   },
   email: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 20,
+  },
+  editBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  editBtnText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  section: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  sectionLabel: {
     fontSize: 14,
-    marginTop: 4,
-  },
-  phone: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  statsCard: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    padding: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  menuSection: {
-    backgroundColor: 'transparent',
-    marginHorizontal: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 12,
+    letterSpacing: 1,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    backgroundColor: colors.white,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  menuIcon: {
+  menuIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
-  menuContent: {
+  menuTextContainer: {
     flex: 1,
-    marginLeft: 12,
   },
   menuTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: colors.text,
   },
   menuSubtitle: {
     fontSize: 12,
+    color: colors.textSecondary,
     marginTop: 2,
   },
-  menuDivider: {
-    marginLeft: 52,
-  },
-  logoutButton: {
-    marginHorizontal: 16,
-    marginTop: 24,
-    borderWidth: 1,
-  },
-  deleteAccount: {
+  logoutBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
+    justifyContent: 'center',
+    backgroundColor: '#FFF5F5',
+    marginHorizontal: 24,
+    marginTop: 40,
+    height: 56,
+    borderRadius: 16,
   },
-  deleteText: {
-    fontSize: 14,
-  },
-  version: {
-    textAlign: 'center',
-    marginTop: 24,
-    fontSize: 12,
+  logoutText: {
+    color: colors.error,
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
   },
 });
+
+export default ProfileScreen;

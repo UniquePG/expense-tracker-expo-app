@@ -1,43 +1,39 @@
+import { ENDPOINTS } from '../constants/apiEndpoints';
 import axiosClient from './axiosClient';
-import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export const notificationsApi = {
-  getNotifications: async (page = 1, limit = 20) => {
-    const response = await axiosClient.get(API_ENDPOINTS.NOTIFICATIONS.LIST, {
-      params: {page, limit},
-    });
-    return response.data;
+  getAll: async (params) => {
+    const response = await axiosClient.get(ENDPOINTS.NOTIFICATIONS.BASE, { params });
+    return response;
   },
-
-  markAsRead: async notificationId => {
-    const response = await axiosClient.post(
-      API_ENDPOINTS.NOTIFICATIONS.MARK_READ(notificationId),
-    );
-    return response.data;
+  getUnreadCount: async () => {
+    const response = await axiosClient.get(ENDPOINTS.NOTIFICATIONS.UNREAD);
+    return response;
   },
-
+  markAsRead: async (notificationIds) => {
+    const response = await axiosClient.post(ENDPOINTS.NOTIFICATIONS.MARK_READ, { notificationIds });
+    return response;
+  },
+  markSingleAsRead: async (id) => {
+    const response = await axiosClient.post(ENDPOINTS.NOTIFICATIONS.ID_READ(id));
+    return response;
+  },
   markAllAsRead: async () => {
-    const response = await axiosClient.post(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
-    return response.data;
+    const response = await axiosClient.post(ENDPOINTS.NOTIFICATIONS.READ_ALL);
+    return response;
   },
-
-  deleteNotification: async notificationId => {
-    const response = await axiosClient.delete(
-      API_ENDPOINTS.NOTIFICATIONS.DELETE(notificationId),
-    );
-    return response.data;
+  delete: async (id) => {
+    const response = await axiosClient.delete(ENDPOINTS.NOTIFICATIONS.ID(id));
+    return response;
   },
-
   getSettings: async () => {
-    const response = await axiosClient.get(API_ENDPOINTS.NOTIFICATIONS.SETTINGS);
-    return response.data;
+    const response = await axiosClient.get(ENDPOINTS.NOTIFICATIONS.SETTINGS);
+    return response;
   },
-
-  updateSettings: async settings => {
-    const response = await axiosClient.put(
-      API_ENDPOINTS.NOTIFICATIONS.SETTINGS,
-      settings,
-    );
-    return response.data;
+  updateSettings: async (data) => {
+    const response = await axiosClient.put(ENDPOINTS.NOTIFICATIONS.SETTINGS, data);
+    return response;
   },
 };
+
+export default notificationsApi;

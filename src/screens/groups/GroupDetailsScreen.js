@@ -1,382 +1,440 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
-import {
-    Alert,
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    View,
-} from 'react-native';
-import { Button, FAB, Menu, Text, useTheme } from 'react-native-paper';
-import { ExpenseCard } from '../../components/cards/ExpenseCard';
-import { Avatar } from '../../components/ui/Avatar';
-import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { Header } from '../../components/ui/Header';
-import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
-import { TabBar } from '../../components/ui/TabBar';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Avatar from '../../components/ui/Avatar';
+import EmptyState from '../../components/ui/EmptyState';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { colors } from '../../constants/colors';
+import { useExpenses } from '../../hooks/useExpenses';
 import { useGroups } from '../../hooks/useGroups';
-import { formatCurrency } from '../../utils/formatCurrency';
+;
 
-const TABS = [
-  {key: 'expenses', label: 'Expenses'},
-  {key: 'balances', label: 'Balances'},
-  {key: 'members', label: 'Members'},
-];
-
-export const GroupDetailsScreen = ({navigation, route}) => {
-  const {id} = route.params;
-  const theme = useTheme();
-  const [activeTab, setActiveTab] = useState('expenses');
-  const [menuVisible, setMenuVisible] = useState(false);
+const GroupDetailsScreen = ({ route, navigation }) => {
+  const { groupId, title } = route.params;
+  const [activeTab, setActiveTab] = useState('Expenses');
+  const [refreshing, setRefreshing] = useState(false);
   
-  const {
-    currentGroup,
-    groupExpenses,
-    isLoading,
-    fetchGroupDetails,
-    fetchGroupExpenses,
-    deleteGroup,
-  } = useGroups();
+  const { getGroupDetails, groupDetails, isLoading: groupLoading } = useGroups();
+  const { fetchExpenses, expenses, isLoading: expensesLoading } = useExpenses();
+
+  const loadData = useCallback(async () => {
+    try {
+      await Promise.all([
+        getGroupDetails(groupId),
+        fetchExpenses({ groupId })
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load group details');
+    }
+  }, [groupId]);
 
   useEffect(() => {
-    loadGroupData();
-  }, [id]);
+    loadData();
+  }, [loadData]);
 
-  const loadGroupData = async () => {
-    await Promise.all([
-      fetchGroupDetails(id),
-      fetchGroupExpenses(id),
-    ]);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
   };
 
-  const handleDeleteGroup = useCallback(() => {
-    Alert.alert(
-      'Delete Group',
-      'Are you sure you want to delete this group? All expenses will be permanently deleted.',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteGroup(id);
-              navigation.goBack();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete group');
-            }
-          },
-        },
-      ]
-    );
-  }, [id, deleteGroup, navigation]);
-
-  const handleAddExpense = () => {
-    navigation.navigate('CreateExpense', {groupId: id});
-  };
-
-  const handleAddMember = () => {
-    navigation.navigate('GroupMembers', {id, mode: 'add'});
-  };
-
-  const renderExpensesTab = () => {
-    if (groupExpenses.length === 0) {
-      return (
-        <EmptyState
-          icon="receipt"
-          title="No expenses yet"
-          message="Add your first group expense to get started"
-          actionLabel="Add Expense"
-          onAction={handleAddExpense}
-        />
-      );
-    }
-
-    return (
-      <FlatList
-        data={groupExpenses}
-        keyExtractor={(item) => item.id}
-        renderItem={({item}) => (
-          <ExpenseCard
-            expense={item}
-            onPress={() => navigation.navigate('ExpenseDetails', {id: item.id})}
-          />
-        )}
-        scrollEnabled={false}
-      />
-    );
-  };
-
-  const renderBalancesTab = () => {
-    if (!currentGroup?.balances?.length) return null;
-
-    return (
-      <View style={styles.balancesContainer}>
-        {currentGroup.balances.map(balance => (
-          <Card key={balance.userId} style={styles.balanceCard}>
-            <View style={styles.balanceRow}>
-              <Avatar
-                source={balance.user.avatar ? {uri: balance.user.avatar} : null}
-                firstName={balance.user.firstName}
-                lastName={balance.user.lastName}
-                size={40}
-              />
-              <View style={styles.balanceInfo}>
-                <Text style={[styles.balanceName, {color: theme.colors.text}]}>
-                  {balance.user.firstName} {balance.user.lastName}
-                </Text>
-                <Text style={[styles.balanceNet, {color: theme.colors.textSecondary}]}>
-                  Paid: {formatCurrency(balance.paid)} | Owed: {formatCurrency(balance.owed)}
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.balanceAmount,
-                  {
-                    color: balance.net >= 0 ? theme.colors.income : theme.colors.expense,
-                  },
-                ]}>
-                {balance.net >= 0 ? '+' : ''}{formatCurrency(balance.net)}
-              </Text>
-            </View>
-          </Card>
-        ))}
+  const BalanceItem = ({ member }) => (
+    <View style={styles.balanceItem}>
+      <Avatar source={member.avatar} name={member.name} size={40} radius={20} />
+      <View style={styles.balanceInfo}>
+        <Text style={styles.balanceName}>{member.name}</Text>
+        <Text style={[
+          styles.balanceAmount, 
+          { color: member.balance >= 0 ? colors.success : colors.error }
+        ]}>
+          {member.balance >= 0 ? 'is owed' : 'owes'} ${Math.abs(member.balance).toFixed(2)}
+        </Text>
       </View>
-    );
-  };
+      {member.balance < 0 && (
+        <TouchableOpacity style={styles.settleBtn}>
+          <Text style={styles.settleBtnText}>Settle Up</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
-  const renderMembersTab = () => {
-    if (!currentGroup?.members?.length) return null;
-
-    return (
-      <View>
-        {currentGroup.members.map(member => (
-          <Card key={member.id} style={styles.memberCard}>
-            <View style={styles.memberRow}>
-              <Avatar
-                source={member.avatar ? {uri: member.avatar} : null}
-                firstName={member.firstName}
-                lastName={member.lastName}
-                size={48}
-              />
-              <View style={styles.memberInfo}>
-                <Text style={[styles.memberName, {color: theme.colors.text}]}>
-                  {member.firstName} {member.lastName}
-                </Text>
-                <Text style={[styles.memberEmail, {color: theme.colors.textSecondary}]}>
-                  {member.email}
-                </Text>
-              </View>
-              {member.isAdmin && (
-                <View style={[styles.adminBadge, {backgroundColor: theme.colors.primary}]}>
-                  <Text style={styles.adminText}>Admin</Text>
-                </View>
-              )}
-            </View>
-          </Card>
-        ))}
-        
-        <Button
-          mode="outlined"
-          icon="account-plus"
-          onPress={handleAddMember}
-          style={styles.addMemberButton}>
-          Add Member
-        </Button>
+  const ExpenseItem = ({ expense }) => (
+    <TouchableOpacity 
+      style={styles.expenseItem}
+      onPress={() => navigation.navigate('ExpenseDetails', { expenseId: expense.id })}
+    >
+      <View style={styles.expenseIcon}>
+        <Icon name={getCategoryIcon(expense.category)} size={24} color={colors.primary} />
       </View>
-    );
+      <View style={styles.expenseDetails}>
+        <Text style={styles.expenseTitle}>{expense.description}</Text>
+        <Text style={styles.expenseMeta}>
+          Paid by {expense.paidBy === 'me' ? 'You' : expense.paidByName} • {dayjs(expense.date).format('MMM D')}
+        </Text>
+      </View>
+      <View style={styles.expenseAmountContainer}>
+        <Text style={styles.expenseAmount}>${expense.amount.toFixed(2)}</Text>
+        <Text style={[
+          styles.expenseShare,
+          { color: expense.userShare >= 0 ? colors.success : colors.error }
+        ]}>
+          {expense.userShare >= 0 ? 'You lent' : 'You borrowed'} ${Math.abs(expense.userShare).toFixed(2)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      'Food': 'silverware-fork-knife',
+      'Travel': 'car',
+      'Shopping': 'shopping',
+      'Bills': 'file-document-outline',
+      'Rent': 'home-outline',
+      'Health': 'dumbbell',
+      'Entertainment': 'movie-outline',
+      'General': 'dots-horizontal',
+    };
+    return icons[category] || 'dots-horizontal';
   };
 
-  if (!currentGroup) {
-    return <LoadingOverlay visible={true} />;
-  }
+  const isLoading = groupLoading || expensesLoading;
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title={currentGroup.name}
-        subtitle={`${currentGroup.members?.length || 0} members`}
-        onBack={() => navigation.goBack()}
-        rightAction={
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <Icon.Button
-                name="dots-vertical"
-                size={24}
-                color={theme.colors.text}
-                backgroundColor="transparent"
-                onPress={() => setMenuVisible(true)}
-              />
-            }>
-            <Menu.Item
-              onPress={() => navigation.navigate('GroupSettings', {id})}
-              title="Group Settings"
-              leadingIcon="cog"
-            />
-            <Menu.Item
-              onPress={handleDeleteGroup}
-              title="Delete Group"
-              leadingIcon="delete"
-              titleStyle={{color: theme.colors.error}}
-            />
-          </Menu>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{groupDetails?.name || title}</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })}>
+            <Icon name="cog-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView 
+        stickyHeaderIndices={[1]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
-      />
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, {color: theme.colors.textSecondary}]}>
-                Total Expenses
-              </Text>
-              <Text style={[styles.summaryValue, {color: theme.colors.text}]}>
-                {formatCurrency(currentGroup.totalExpenses || 0, currentGroup.currency)}
-              </Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, {color: theme.colors.textSecondary}]}>
-                Your Balance
-              </Text>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  {
-                    color: (currentGroup.userBalance || 0) >= 0
-                      ? theme.colors.income
-                      : theme.colors.expense,
-                  },
-                ]}>
-                {(currentGroup.userBalance || 0) >= 0 ? '+' : ''}
-                {formatCurrency(currentGroup.userBalance || 0, currentGroup.currency)}
-              </Text>
-            </View>
+      >
+        <View style={styles.groupHero}>
+          <View style={styles.imageContainer}>
+            <Avatar source={groupDetails?.avatar} name={groupDetails?.name || title} size={100} radius={50} />
+            <TouchableOpacity style={styles.editImageBtn}>
+              <Icon name="pencil" size={16} color={colors.white} />
+            </TouchableOpacity>
           </View>
-        </Card>
+          <Text style={styles.groupTitle}>{groupDetails?.name || title}</Text>
+          <Text style={styles.totalSpent}>Total Spent: <Text style={styles.amountText}>${groupDetails?.totalSpent?.toFixed(2) || '0.00'}</Text></Text>
+          
+          <View style={styles.memberAvatars}>
+            {groupDetails?.members?.slice(0, 4).map((member, index) => (
+              <View key={member.id} style={[styles.avatarOverlap, { left: -10 * index, zIndex: 10 - index }]}>
+                <Avatar source={member.avatar} name={member.name} size={32} radius={16} />
+              </View>
+            ))}
+            {groupDetails?.members?.length > 4 && (
+              <View style={[styles.avatarOverlap, styles.moreAvatars, { left: -40, zIndex: 0 }]}>
+                <Text style={styles.moreAvatarsText}>+{groupDetails.members.length - 4}</Text>
+              </View>
+            )}
+          </View>
+        </View>
 
-        <TabBar
-          tabs={TABS}
-          activeTab={activeTab}
-          onChange={setActiveTab}
-          style={styles.tabBar}
-        />
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'Expenses' && styles.activeTab]} 
+            onPress={() => setActiveTab('Expenses')}
+          >
+            <Text style={[styles.tabText, activeTab === 'Expenses' && styles.activeTabText]}>Expenses</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'Balances' && styles.activeTab]} 
+            onPress={() => setActiveTab('Balances')}
+          >
+            <Text style={[styles.tabText, activeTab === 'Balances' && styles.activeTabText]}>Balances</Text>
+          </TouchableOpacity>
+        </View>
 
-        {activeTab === 'expenses' && renderExpensesTab()}
-        {activeTab === 'balances' && renderBalancesTab()}
-        {activeTab === 'members' && renderMembersTab()}
+        <View style={styles.content}>
+          {activeTab === 'Expenses' ? (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Expenses</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('ExpensesList', { groupId })}>
+                  <Text style={styles.viewAll}>View All</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {expenses.length > 0 ? (
+                expenses.map(expense => <ExpenseItem key={expense.id} expense={expense} />)
+              ) : (
+                <EmptyState 
+                  icon="receipt" 
+                  title="No expenses yet" 
+                  description="Start adding expenses to this group"
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Outstanding Balances</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{groupDetails?.members?.length || 0} Members</Text>
+                </View>
+              </View>
+              
+              {groupDetails?.members?.map(member => (
+                <BalanceItem key={member.id} member={member} />
+              ))}
+            </>
+          )}
+        </View>
       </ScrollView>
 
-      <FAB
-        icon="plus"
-        style={[styles.fab, {backgroundColor: theme.colors.primary}]}
-        onPress={handleAddExpense}
-        color="#FFFFFF"
-      />
-
-      <LoadingOverlay visible={isLoading && !currentGroup} />
-    </ScreenWrapper>
+      <TouchableOpacity 
+        style={styles.fab} 
+        onPress={() => navigation.navigate('AddExpense', { groupId })}
+      >
+        <Icon name="plus" size={30} color={colors.white} />
+      </TouchableOpacity>
+      
+      <LoadingOverlay visible={isLoading && !refreshing} />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  summaryCard: {
-    margin: 16,
-    padding: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-  },
-  summaryItem: {
+  container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: colors.background,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  headerActions: {
+    flexDirection: 'row',
+  },
+  groupHero: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  imageContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  editImageBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  groupTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  totalSpent: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  amountText: {
+    fontWeight: '700',
+  },
+  memberAvatars: {
+    flexDirection: 'row',
+    paddingLeft: 30,
+    height: 32,
+  },
+  avatarOverlap: {
+    position: 'absolute',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.white,
+    backgroundColor: colors.white,
+  },
+  moreAvatars: {
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: '#E0E0E0',
+  moreAvatarsText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '700',
   },
-  summaryLabel: {
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: colors.primary,
+  },
+  content: {
+    padding: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  badge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
     fontSize: 12,
-    marginBottom: 4,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  tabBar: {
-    marginBottom: 8,
-  },
-  balancesContainer: {
-    padding: 16,
-  },
-  balanceCard: {
-    marginBottom: 8,
-    padding: 12,
-  },
-  balanceRow: {
+  balanceItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.white,
+    padding: 16,
+    borderRadius: 24,
+    marginBottom: 12,
   },
   balanceInfo: {
-    marginLeft: 12,
     flex: 1,
+    marginLeft: 12,
   },
   balanceName: {
     fontSize: 14,
-    fontWeight: '500',
-  },
-  balanceNet: {
-    fontSize: 12,
-    marginTop: 2,
+    fontWeight: '600',
+    color: colors.text,
   },
   balanceAmount: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-  },
-  memberCard: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 12,
-  },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  memberInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  memberName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  memberEmail: {
-    fontSize: 12,
     marginTop: 2,
   },
-  adminBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  settleBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
-  adminText: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  settleBtnText: {
+    color: colors.white,
+    fontSize: 13,
     fontWeight: '600',
   },
-  addMemberButton: {
-    margin: 16,
+  viewAll: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  expenseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  expenseIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E0F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  expenseDetails: {
+    flex: 1,
+  },
+  expenseTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  expenseMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  expenseAmountContainer: {
+    alignItems: 'flex-end',
+  },
+  expenseAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  expenseShare: {
+    fontSize: 11,
+    marginTop: 2,
   },
   fab: {
     position: 'absolute',
+    bottom: 30,
     right: 24,
-    bottom: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
   },
 });
+
+export default GroupDetailsScreen;

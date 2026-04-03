@@ -1,385 +1,674 @@
-import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { useCallback, useEffect } from 'react';
+import { useEffect, useState } from "react";
 import {
-  Dimensions,
+  FlatList,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { LineChart, PieChart } from 'react-native-chart-kit';
-import { Button, Text, useTheme } from 'react-native-paper';
-import { FloatingActionButton } from '../../components/buttons/FloatingActionButton';
-import { BalanceCard } from '../../components/cards/BalanceCard';
-import { FriendCard } from '../../components/cards/FriendCard';
-import { TransactionCard } from '../../components/cards/TransactionCard';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { Header } from '../../components/ui/Header';
-import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
-import { useNetworkStatus } from '../../hooks/useNetworkStatus';
-import { useAnalyticsStore } from '../../store/analyticsStore';
-import { useAuthStore } from '../../store/authStore';
-import { useFriendsStore } from '../../store/friendsStore';
+} from "react-native";
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import BalanceCard from "../../components/cards/BalanceCard";
+import ExpenseCard from "../../components/cards/ExpenseCard";
+import Avatar from "../../components/ui/Avatar";
+import Card from "../../components/ui/Card";
+import LoadingOverlay from "../../components/ui/LoadingOverlay";
+import { colors } from "../../constants/colors";
+import { useUserStore } from "../../store/userStore";
+import { formatCurrency } from "../../utils/formatCurrency";
 
-const screenWidth = Dimensions.get('window').width;
-
-export const DashboardScreen = () => {
-  const navigation = useNavigation();
-  const theme = useTheme();
-  const {user} = useAuthStore();
-  console.log('user :', user);
-  const {isOffline} = useNetworkStatus();
-  // console.log('isOffline :', isOffline);
-  
+const DashboardScreen = ({ navigation }) => {
   const {
     dashboardData,
     isLoading,
-    error,
-    fetchDashboardData,
-  } = useAnalyticsStore();
-  
+    fetchDashboard,
+    profile: user,
+  } = useUserStore();
   console.log('dashboardData :', dashboardData);
-  const {
-    balances,
-    fetchBalances,
-  } = useFriendsStore();
-  console.log('balances :', balances);
+  
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadData();
+    const unsubscribe = navigation.addListener("focus", () => {
+      fetchDashboard();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    fetchDashboard();
   }, []);
 
-  const loadData = useCallback(async () => {
-    await Promise.all([
-      fetchDashboardData(),
-      fetchBalances(),
-    ]);
-  }, []);
-
-  const renderQuickActions = () => (
-    <View style={styles.quickActions}>
-      <TouchableOpacity
-        style={[styles.actionButton, {backgroundColor: theme.colors.primaryLight}]}
-        onPress={() => navigation.navigate('AddExpense')}>
-        <Icon name="cash-plus" size={24} color={theme.colors.primary} />
-        <Text style={[styles.actionText, {color: theme.colors.text}]}>Add Expense</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.actionButton, {backgroundColor: theme.colors.secondary + '20'}]}
-        onPress={() => navigation.navigate('AddIncome')}>
-        <Icon name="cash-minus" size={24} color={theme.colors.secondary} />
-        <Text style={[styles.actionText, {color: theme.colors.text}]}>Add Income</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.actionButton, {backgroundColor: theme.colors.info + '20'}]}
-        onPress={() => navigation.navigate('CreateGroup')}>
-        <Icon name="account-group" size={24} color={theme.colors.info} />
-        <Text style={[styles.actionText, {color: theme.colors.text}]}>New Group</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderBalanceCards = () => {
-    if (!dashboardData) return null;
-    
-    return (
-      <View style={styles.balanceCards}>
-        <BalanceCard
-          title="Total Balance"
-          amount={dashboardData.totalBalance}
-          currency={dashboardData.currency}
-          style={styles.balanceCard}
-        />
-        <BalanceCard
-          title="You Owe"
-          amount={dashboardData.totalBorrowed}
-          currency={dashboardData.currency}
-          style={styles.balanceCard}
-        />
-        <BalanceCard
-          title="You Are Owed"
-          amount={dashboardData.totalLent}
-          currency={dashboardData.currency}
-          style={styles.balanceCard}
-        />
-      </View>
-    );
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchDashboard();
+    setRefreshing(false);
   };
 
-  const renderMonthlyOverview = () => {
-    if (!dashboardData?.monthlyData) return null;
-
-    const data = {
-      labels: dashboardData.monthlyData.map(d => d.month),
-      datasets: [
-        {
-          data: dashboardData.monthlyData.map(d => d.expense),
-          color: () => theme.colors.expense,
-          strokeWidth: 2,
-        },
-        {
-          data: dashboardData.monthlyData.map(d => d.income),
-          color: () => theme.colors.income,
-          strokeWidth: 2,
-        },
-      ],
-    };
-
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Monthly Overview
-          </Text>
-          <Button
-            mode="text"
-            onPress={() => navigation.navigate('Trends')}
-            compact>
-            See All
-          </Button>
-        </View>
-        
-        <LineChart
-          data={data}
-          width={screenWidth - 32}
-          height={220}
-          chartConfig={{
-            backgroundColor: theme.colors.card,
-            backgroundGradientFrom: theme.colors.card,
-            backgroundGradientTo: theme.colors.card,
-            decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-            labelColor: () => theme.colors.textSecondary,
-            style: {
-              borderRadius: 16,
-            },
-            propsForDots: {
-              r: '4',
-              strokeWidth: '2',
-            },
-          }}
-          bezier
-          style={styles.chart}
-        />
-      </View>
-    );
+  const summary = dashboardData?.overview || {};
+  const accounts = dashboardData?.accounts || {};
+  const recentTransactions = dashboardData?.recentTransactions || [];
+  const activeGroups = dashboardData?.activeGroups || [];
+  const budgetAlerts = dashboardData?.budgetAlerts || [];
+  const pendingSettlements = dashboardData?.pendingSettlements || [];
+  
+  console.log('recentTransactions :', recentTransactions);
+  const handleNotificationPress = () => {
+    navigation.navigate("Notifications");
   };
 
-  const renderCategoryBreakdown = () => {
-    if (!dashboardData?.categoryBreakdown?.length) return null;
-
-    const data = dashboardData.categoryBreakdown.map(cat => ({
-      name: cat.name,
-      amount: cat.amount,
-      color: cat.color,
-      legendFontColor: theme.colors.text,
-      legendFontSize: 12,
-    }));
-
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Spending by Category
-          </Text>
-          <Button
-            mode="text"
-            onPress={() => navigation.navigate('CategoryBreakdown')}
-            compact>
-            See All
-          </Button>
-        </View>
-        
-        <PieChart
-          data={data}
-          width={screenWidth - 32}
-          height={200}
-          chartConfig={{
-            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-          }}
-          accessor="amount"
-          backgroundColor="transparent"
-          paddingLeft="15"
-          absolute
-          style={styles.chart}
-        />
-      </View>
-    );
+  const handleProfilePress = () => {
+    navigation.navigate("Profile");
   };
 
-  const renderRecentTransactions = () => {
-    if (!dashboardData?.recentTransactions?.length) {
-      return (
-        <EmptyState
-          icon="receipt"
-          title="No transactions yet"
-          message="Add your first expense or income to see it here"
-          actionLabel="Add Transaction"
-          onAction={() => navigation.navigate('AddExpense')}
-        />
-      );
-    }
-
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Recent Transactions
-          </Text>
-          <Button
-            mode="text"
-            onPress={() => navigation.navigate('TransactionList')}
-            compact>
-            See All
-          </Button>
-        </View>
-        
-        {dashboardData.recentTransactions.map(transaction => (
-          <TransactionCard
-            key={transaction.id}
-            transaction={transaction}
-            onPress={() => navigation.navigate('TransactionDetails', {id: transaction.id})}
-          />
-        ))}
-      </View>
-    );
+  const handleAccountsPress = () => {
+    navigation.navigate("AccountsList");
   };
 
-  const renderOutstandingBalances = () => {
-    const outstandingBalances = balances.filter(b => b.amount !== 0);
-    
-    if (!outstandingBalances.length) {
-      return (
-        <EmptyState
-          icon="check-circle"
-          title="All settled up!"
-          message="You have no outstanding balances with friends"
-        />
-      );
-    }
+  const handleAddExpense = () => {
+    navigation.navigate("AddExpense");
+  };
 
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Outstanding Balances
-          </Text>
-          <Button
-            mode="text"
-            onPress={() => navigation.navigate('Settlements')}
-            compact>
-            See All
-          </Button>
-        </View>
-        
-        {outstandingBalances.slice(0, 3).map(balance => (
-          <FriendCard
-            key={balance.friendId}
-            friend={balance.friend}
-            balance={balance}
-            onPress={() => navigation.navigate('FriendProfile', {id: balance.friendId})}
-          />
-        ))}
-      </View>
-    );
+  const handleAddIncome = () => {
+    navigation.navigate("AddIncome");
+  };
+
+  const handleViewAllTransactions = () => {
+    navigation.navigate("TransactionList");
+  };
+
+  const handleViewAllGroups = () => {
+    navigation.navigate("Groups");
+  };
+
+  const handleViewAllSettlements = () => {
+    navigation.navigate("Settlements");
+  };
+
+  const handleTransactionPress = (transaction) => {
+    navigation.navigate("TransactionDetails", {
+      transactionId: transaction.id,
+    });
+  };
+
+  const handleGroupPress = (group) => {
+    navigation.navigate("GroupDetails", { groupId: group.id });
   };
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title={`Hello, ${user?.firstName || 'User'}`}
-        subtitle={isOffline ? 'Offline Mode' : 'Welcome back'}
-        rightIcon="bell"
-        onRightPress={() => navigation.navigate('Notifications')}
-      />
-      
+    <View style={styles.container}>
       <ScrollView
+        style={styles.scrollView}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={loadData} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+          />
         }
-        contentContainerStyle={styles.scrollContent}>
-        
-        {renderQuickActions()}
-        {renderBalanceCards()}
-        {renderMonthlyOverview()}
-        {renderCategoryBreakdown()}
-        {renderRecentTransactions()}
-        {renderOutstandingBalances()}
-        
-        <View style={styles.bottomPadding} />
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.profileSection}
+            onPress={handleProfilePress}
+          >
+            <Avatar
+              source={user?.avatar}
+              name={`${user?.firstName} ${user?.lastName}`}
+              size={40}
+            />
+            <View style={styles.headerText}>
+              <Text style={styles.greeting}>Good morning,</Text>
+              <Text style={styles.userName}>{user?.firstName || "User"}</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.notificationBtn}
+            onPress={handleNotificationPress}
+          >
+            <Icon name="bell-outline" size={24} color={colors.primary} />
+            {dashboardData?.unreadNotifications > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.badgeText}>
+                  {dashboardData.unreadNotifications}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Total Balance Card */}
+        <View style={styles.balanceSection}>
+          <BalanceCard
+            balance={summary.totalBalance || 0}
+            label="Total Balance"
+            subLabel={`Across ${accounts.count || 0} accounts`}
+            currency={user?.currency || "INR"}
+          />
+        </View>
+
+        {/* Split Summary Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: "#ECFDF5" }]}>
+              <Icon name="arrow-down" size={20} color={colors.success} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statLabel}>Income</Text>
+              <Text style={[styles.statValue, { color: colors.success }]}>
+                {formatCurrency(summary.totalIncome || 0, user?.currency)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: "#FEF2F2" }]}>
+              <Icon name="arrow-up" size={20} color={colors.error} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statLabel}>Expenses</Text>
+              <Text style={[styles.statValue, { color: colors.error }]}>
+                {formatCurrency(summary.totalExpenses || 0, user?.currency)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Actions Row */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+            onPress={handleAddIncome}
+          >
+            <Icon name="plus-circle" size={20} color={colors.white} />
+            <Text style={styles.actionText}>Add Income</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: "#1E293B" }]}
+            onPress={handleAddExpense}
+          >
+            <Icon name="minus-circle" size={20} color={colors.white} />
+            <Text style={styles.actionText}>Add Expense</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Manage Accounts Button */}
+        <View style={styles.accountsRow}>
+          <TouchableOpacity
+            style={styles.accountsBtn}
+            onPress={handleAccountsPress}
+          >
+            <Icon name="wallet-outline" size={20} color={colors.primary} />
+            <View style={styles.accountsTextContainer}>
+              <Text style={styles.accountsBtnText}>Manage Accounts</Text>
+              <Text style={styles.accountsSubText}>Bank, Cash, Cards</Text>
+            </View>
+            <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Budget Alerts */}
+        {budgetAlerts && budgetAlerts.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Budget Alerts</Text>
+            </View>
+            {budgetAlerts.slice(0, 2).map((alert) => (
+              <Card key={alert.id} style={styles.alertCard}>
+                <View style={styles.alertContent}>
+                  <View
+                    style={[
+                      styles.alertIcon,
+                      {
+                        backgroundColor:
+                          alert.percentage > 80 ? "#FEF2F2" : "#FEF3C7",
+                      },
+                    ]}
+                  >
+                    <Icon
+                      name={
+                        alert.percentage > 80 ? "alert-circle" : "alert"
+                      }
+                      size={20}
+                      color={alert.percentage > 80 ? colors.error : "#F59E0B"}
+                    />
+                  </View>
+                  <View style={styles.alertInfo}>
+                    <Text style={styles.alertTitle}>{alert.name}</Text>
+                    <Text style={styles.alertDescription}>
+                      {alert.percentage}% used ({formatCurrency(alert.spent, user?.currency)} of{" "}
+                      {formatCurrency(alert.limit, user?.currency)})
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
+
+        {/* Recent Expenses */}
+        {recentTransactions && recentTransactions.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Expenses</Text>
+              <TouchableOpacity onPress={handleViewAllTransactions}>
+                <Text style={styles.seeAll}>See All</Text>
+              </TouchableOpacity>
+            </View>
+            {recentTransactions.slice(0, 5).map((transaction) => (
+              <ExpenseCard
+                key={transaction.id}
+                expense={transaction}
+                onPress={() => handleTransactionPress(transaction)}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Active Groups */}
+        {activeGroups && activeGroups.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Active Groups</Text>
+              <TouchableOpacity onPress={handleViewAllGroups}>
+                <Text style={styles.seeAll}>See All</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={activeGroups.slice(0, 3)}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item: group }) => (
+                <TouchableOpacity
+                  style={styles.groupCard}
+                  onPress={() => handleGroupPress(group)}
+                >
+                  <View style={styles.groupIcon}>
+                    <Icon name="account-multiple" size={24} color={colors.white} />
+                  </View>
+                  <Text style={styles.groupName} numberOfLines={1}>
+                    {group.name}
+                  </Text>
+                  <Text style={styles.groupMembers}>
+                    {group.memberCount} members
+                  </Text>
+                </TouchableOpacity>
+              )}
+              scrollEventThrottle={16}
+            />
+          </View>
+        )}
+
+        {/* Pending Settlements */}
+        {pendingSettlements && pendingSettlements.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pending Settlements</Text>
+              <TouchableOpacity onPress={handleViewAllSettlements}>
+                <Text style={styles.seeAll}>See All</Text>
+              </TouchableOpacity>
+            </View>
+            {pendingSettlements.slice(0, 3).map((settlement) => (
+              <Card key={settlement.id} style={styles.settlementCard}>
+                <View style={styles.settlementContent}>
+                  <View style={styles.settlementInfo}>
+                    <Text style={styles.settlementTitle}>
+                      {settlement.fromUserName} → {settlement.toUserName}
+                    </Text>
+                    <Text style={styles.settlementAmount}>
+                      {formatCurrency(settlement.amount, user?.currency)}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.settlementBadge,
+                      {
+                        backgroundColor:
+                          settlement.status === "PENDING"
+                            ? "#FEF3C7"
+                            : "#E0E7FF",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.settlementBadgeText,
+                        {
+                          color:
+                            settlement.status === "PENDING"
+                              ? "#92400E"
+                              : "#3730A3",
+                        },
+                      ]}
+                    >
+                      {settlement.status}
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
+
+        {/* Empty State */}
+        {(!recentTransactions || recentTransactions.length === 0) &&
+          (!activeGroups || activeGroups.length === 0) && (
+            <View style={styles.emptyContainer}>
+              <Icon name="inbox-outline" size={48} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>All set!</Text>
+              <Text style={styles.emptySubText}>Start adding expenses and groups</Text>
+            </View>
+          )}
       </ScrollView>
-
-      <FloatingActionButton
-        onPress={() => navigation.navigate('CreateExpense')}
-        style={styles.fab}
-      />
-
-      <LoadingOverlay visible={isLoading && !dashboardData} />
-    </ScreenWrapper>
+      <LoadingOverlay visible={isLoading} />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginVertical: 16,
-  },
-  actionButton: {
+  container: {
     flex: 1,
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  profileSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  headerText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+    marginTop: 2,
+  },
+  notificationBtn: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    marginHorizontal: 4,
+    backgroundColor: "#E0F2F1",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
+  badgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  balanceSection: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    marginBottom: 24,
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  statContent: {
+    flex: 1,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    marginBottom: 20,
+    gap: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 56,
+    borderRadius: 28,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   actionText: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: '500',
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "600",
+    marginLeft: 8,
   },
-  balanceCards: {
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-    marginBottom: 16,
+  accountsRow: {
+    paddingHorizontal: 24,
+    marginBottom: 32,
   },
-  balanceCard: {
+  accountsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  accountsTextContainer: {
     flex: 1,
-    marginHorizontal: 4,
-    minWidth: 100,
+    marginLeft: 12,
+  },
+  accountsBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  accountsSubText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   section: {
-    marginTop: 24,
+    paddingHorizontal: 24,
+    marginBottom: 28,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
   },
-  chart: {
-    marginHorizontal: 16,
+  seeAll: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  alertCard: {
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+  },
+  alertContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  alertIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  alertInfo: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  alertDescription: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  groupCard: {
+    width: 100,
+    backgroundColor: colors.white,
     borderRadius: 16,
+    padding: 12,
+    alignItems: "center",
+    marginRight: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  bottomPadding: {
-    height: 80,
+  groupIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 24,
+  groupName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+    textAlign: "center",
+  },
+  groupMembers: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 4,
+    textAlign: "center",
+  },
+  settlementCard: {
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+  },
+  settlementContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  settlementInfo: {
+    flex: 1,
+  },
+  settlementTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  settlementAmount: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.primary,
+    marginTop: 4,
+  },
+  settlementBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  settlementBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+    marginTop: 16,
+  },
+  emptySubText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 6,
   },
 });
+
+export default DashboardScreen;
+
+ 

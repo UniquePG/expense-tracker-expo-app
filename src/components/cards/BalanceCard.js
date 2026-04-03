@@ -1,77 +1,56 @@
 import React from 'react';
-import {View, StyleSheet} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
-import {Card} from '../ui/Card';
-import {formatCurrency} from '../../utils/formatCurrency';
+import { View, StyleSheet, Text } from 'react-native';
+import { colors } from '../../constants/colors';
+import { formatCurrency } from '../../utils/formatCurrency';
 
-export const BalanceCard = ({
-  title,
-  amount,
-  currency = 'USD',
-  subtitle,
-  trend,
-  trendUp,
-  style,
-}) => {
-  const theme = useTheme();
-  const isPositive = amount >= 0;
-  const amountColor = isPositive ? theme.colors.income : theme.colors.expense;
-
+const BalanceCard = ({ balance, label, subLabel, currency = '' }) => {
   return (
-    <Card style={[styles.container, style]}>
-      <Text style={[styles.title, {color: theme.colors.textSecondary}]}>
-        {title}
-      </Text>
-      <Text style={[styles.amount, {color: amountColor}]}>
-        {formatCurrency(amount, currency)}
-      </Text>
-      {subtitle && (
-        <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-          {subtitle}
-        </Text>
-      )}
-      {trend && (
-        <View style={styles.trendContainer}>
-          <Text
-            style={[
-              styles.trend,
-              {color: trendUp ? theme.colors.income : theme.colors.expense},
-            ]}>
-            {trendUp ? '↑' : '↓'} {trend}
-          </Text>
-        </View>
-      )}
-    </Card>
+    <View style={styles.container}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.balance}>{formatCurrency(balance, currency)}</Text>
+      {subLabel && <View style={styles.badge}><Text style={styles.subLabel}>{subLabel}</Text></View>}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    minWidth: 150,
-    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  title: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  label: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
   },
-  amount: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginVertical: 8,
+  balance: {
+    color: colors.white,
+    fontSize: 36,
+    fontWeight: '700',
+    marginBottom: 16,
   },
-  subtitle: {
-    fontSize: 12,
+  badge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
-  trendContainer: {
-    marginTop: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 4,
-  },
-  trend: {
+  subLabel: {
+    color: colors.white,
     fontSize: 12,
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });
+
+export default BalanceCard;

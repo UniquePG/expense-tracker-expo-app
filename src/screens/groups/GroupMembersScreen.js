@@ -1,249 +1,115 @@
-import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, FlatList, Alert} from 'react-native';
-import {Text, useTheme, Button, IconButton} from 'react-native-paper';
-import {useGroups} from '../../hooks/useGroups';
-import {useFriends} from '../../hooks/useFriends';
-import {ScreenWrapper} from '../../components/ui/ScreenWrapper';
-import {Header} from '../../components/ui/Header';
-import {Avatar} from '../../components/ui/Avatar';
-import {Card} from '../../components/ui/Card';
-import {SearchInput} from '../../components/inputs/SearchInput';
-import {LoadingOverlay} from '../../components/ui/LoadingOverlay';
-import {EmptyState} from '../../components/ui/EmptyState';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { useEffect } from 'react';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Avatar from '../../components/ui/Avatar';
+import EmptyState from '../../components/ui/EmptyState';
+import Header from '../../components/ui/Header';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
+import { colors } from '../../constants/colors';
+import { useGroups } from '../../hooks/useGroups';
+;
 
-export const GroupMembersScreen = ({navigation, route}) => {
-  const {id, mode} = route.params;
-  const theme = useTheme();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const {
-    currentGroup,
-    fetchGroupDetails,
-    addMember,
-    removeMember,
-  } = useGroups();
-  
-  const {friends} = useFriends({autoFetch: true});
+const GroupMembersScreen = ({ route }) => {
+  const { groupId } = route.params;
+  const { getGroupDetails, groupDetails, removeGroupMember, isLoading } = useGroups();
 
   useEffect(() => {
-    fetchGroupDetails(id);
-  }, [id]);
+    getGroupDetails(groupId);
+  }, [groupId]);
 
-  const existingMemberIds = currentGroup?.members?.map(m => m.id) || [];
-  
-  const availableFriends = friends.filter(
-    f => !existingMemberIds.includes(f.id)
-  ).filter(f => {
-    if (!searchQuery) return true;
-    const fullName = `${f.firstName} ${f.lastName}`.toLowerCase();
-    return fullName.includes(searchQuery.toLowerCase());
-  });
-
-  const handleAddMember = async (friendId) => {
-    try {
-      setIsLoading(true);
-      await addMember(id, friendId);
-      // Refresh to show updated list
-      await fetchGroupDetails(id);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add member');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRemoveMember = (member) => {
+  const handleRemoveMember = (memberId, name) => {
     Alert.alert(
       'Remove Member',
-      `Are you sure you want to remove ${member.firstName} from this group?`,
+      `Are you sure you want to remove ${name} from the group?`,
       [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Remove',
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
           style: 'destructive',
           onPress: async () => {
             try {
-              setIsLoading(true);
-              await removeMember(id, member.id);
-              await fetchGroupDetails(id);
+              await removeGroupMember(groupId, memberId);
+              Alert.alert('Success', 'Member removed');
             } catch (error) {
               Alert.alert('Error', 'Failed to remove member');
-            } finally {
-              setIsLoading(false);
             }
-          },
+          }
         },
       ]
     );
   };
 
-  const renderCurrentMember = ({item}) => (
-    <Card style={styles.memberCard}>
-      <View style={styles.memberRow}>
-        <Avatar
-          source={item.avatar ? {uri: item.avatar} : null}
-          firstName={item.firstName}
-          lastName={item.lastName}
-          size={48}
-        />
-        <View style={styles.memberInfo}>
-          <Text style={[styles.memberName, {color: theme.colors.text}]}>
-            {item.firstName} {item.lastName}
-          </Text>
-          <Text style={[styles.memberEmail, {color: theme.colors.textSecondary}]}>
-            {item.email}
-          </Text>
-        </View>
-        {!item.isCurrentUser && (
-          <IconButton
-            icon="close"
-            size={20}
-            iconColor={theme.colors.error}
-            onPress={() => handleRemoveMember(item)}
-          />
-        )}
+  const MemberItem = ({ item }) => (
+    <View style={styles.item}>
+      <Avatar source={item.avatar} name={item.name} size={50} radius={25} />
+      <View style={styles.itemContent}>
+        <Text style={styles.name}>{item.name}</Text>
+        <Text style={styles.email}>{item.email}</Text>
       </View>
-    </Card>
+      <TouchableOpacity onPress={() => handleRemoveMember(item.id, item.name)}>
+        <Icon name="account-remove" size={24} color={colors.error} />
+      </TouchableOpacity>
+    </View>
   );
-
-  const renderAvailableFriend = ({item}) => (
-    <Card style={styles.friendCard} onPress={() => handleAddMember(item.id)}>
-      <View style={styles.friendRow}>
-        <Avatar
-          source={item.avatar ? {uri: item.avatar} : null}
-          firstName={item.firstName}
-          lastName={item.lastName}
-          size={48}
-        />
-        <View style={styles.friendInfo}>
-          <Text style={[styles.friendName, {color: theme.colors.text}]}>
-            {item.firstName} {item.lastName}
-          </Text>
-          <Text style={[styles.friendEmail, {color: theme.colors.textSecondary}]}>
-            {item.email}
-          </Text>
-        </View>
-        <Button mode="contained" compact>
-          Add
-        </Button>
-      </View>
-    </Card>
-  );
-
-  if (mode === 'add') {
-    return (
-      <ScreenWrapper safeArea={true}>
-        <Header
-          title="Add Members"
-          onBack={() => navigation.goBack()}
-        />
-
-        <SearchInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search friends..."
-          style={styles.searchInput}
-        />
-
-        {availableFriends.length === 0 ? (
-          <EmptyState
-            icon="account-check"
-            title="No available friends"
-            message="All your friends are already in this group"
-          />
-        ) : (
-          <FlatList
-            data={availableFriends}
-            keyExtractor={(item) => item.id}
-            renderItem={renderAvailableFriend}
-            contentContainerStyle={styles.listContent}
-          />
-        )}
-
-        <LoadingOverlay visible={isLoading} />
-      </ScreenWrapper>
-    );
-  }
 
   return (
-    <ScreenWrapper safeArea={true}>
-      <Header
-        title="Group Members"
-        subtitle={`${currentGroup?.members?.length || 0} members`}
-        onBack={() => navigation.goBack()}
-      />
-
+    <ScreenWrapper>
+      <Header title="Group Members" showBack />
       <FlatList
-        data={currentGroup?.members || []}
+        data={groupDetails?.members || []}
         keyExtractor={(item) => item.id}
-        renderItem={renderCurrentMember}
-        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => <MemberItem item={item} />}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={() => getGroupDetails(groupId)} colors={[colors.primary]} />
+        }
+        ListEmptyComponent={
+          !isLoading && (
+            <EmptyState
+              icon="account-group"
+              title="No Members"
+              description="This group doesn't have any members yet."
+            />
+          )
+        }
       />
-
-      <Button
-        mode="contained"
-        icon="account-plus"
-        onPress={() => navigation.navigate('GroupMembers', {id, mode: 'add'})}
-        style={styles.addButton}>
-        Add Member
-      </Button>
-
-      <LoadingOverlay visible={isLoading} />
+      <LoadingOverlay visible={isLoading && !groupDetails} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  searchInput: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-  },
-  listContent: {
+  list: {
     padding: 16,
-    paddingBottom: 100,
   },
-  memberCard: {
-    marginBottom: 8,
-    padding: 12,
-  },
-  memberRow: {
+  item: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  memberInfo: {
-    marginLeft: 12,
+  itemContent: {
     flex: 1,
+    marginLeft: 16,
   },
-  memberName: {
+  name: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: colors.text,
   },
-  memberEmail: {
-    fontSize: 12,
+  email: {
+    fontSize: 13,
+    color: colors.textSecondary,
     marginTop: 2,
-  },
-  friendCard: {
-    marginBottom: 8,
-    padding: 12,
-  },
-  friendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  friendInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  friendName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  friendEmail: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  addButton: {
-    margin: 16,
   },
 });
+
+export default GroupMembersScreen;

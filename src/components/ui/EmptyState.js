@@ -1,32 +1,23 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
-import { Button, Text, useTheme } from 'react-native-paper';
+import { StyleSheet, Text, View } from 'react-native';
+import { colors } from '../../constants/colors';
+import Button from '../buttons/Button';
+;
 
-export const EmptyState = ({
-  icon = 'inbox-outline',
-  title = 'No items found',
-  message = 'There are no items to display at the moment.',
-  actionLabel,
-  onAction,
-}) => {
-  const theme = useTheme();
-
+const EmptyState = ({ icon, title, message, actionTitle, onActionPress }) => {
   return (
     <View style={styles.container}>
-      <Icon
-        name={icon}
-        size={64}
-        color={theme.colors.textDisabled}
-        style={styles.icon}
-      />
-      <Text style={[styles.title, {color: theme.colors.text}]}>{title}</Text>
-      <Text style={[styles.message, {color: theme.colors.textSecondary}]}>
-        {message}
-      </Text>
-      {actionLabel && onAction && (
-        <Button mode="contained" onPress={onAction} style={styles.button}>
-          {actionLabel}
-        </Button>
+      <View style={styles.iconContainer}>
+        <Icon name={icon} size={64} color={colors.textSecondary} />
+      </View>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.message}>{message}</Text>
+      {actionTitle && (
+        <Button 
+          title={actionTitle} 
+          onPress={onActionPress} 
+          style={styles.button}
+        />
       )}
     </View>
   );
@@ -39,22 +30,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
-  icon: {
-    marginBottom: 16,
+  iconContainer: {
+    marginBottom: 24,
+    opacity: 0.5,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
     textAlign: 'center',
+    marginBottom: 8,
   },
   message: {
-    fontSize: 14,
+    fontSize: 16,
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 20,
+    marginBottom: 32,
+    lineHeight: 24,
   },
   button: {
-    minWidth: 120,
+    minWidth: 200,
   },
 });
+
+export default EmptyState;
