@@ -23,7 +23,7 @@ axiosClient.interceptors.request.use(
 
 axiosClient.interceptors.response.use(
   (response) =>{
-    console.log('BaseURL: ',response.config.url, 'response :', response.data);
+    console.log('BaseURL: ',response.config.url, 'response.data :', response.data);
    
    return response.data
 

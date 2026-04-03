@@ -83,6 +83,7 @@ export const ENDPOINTS = {
     BASE: '/groups',
     ID: (id) => `/groups/${id}`,
     MEMBERS: (id) => `/groups/${id}/members`,
+    MEMBER_ADMIN: (id, memberId) => `/groups/${id}/members/${memberId}/admin`,
     EXPENSES: (id) => `/groups/${id}/expenses`,
     BALANCES: (id) => `/groups/${id}/balances`,
     SETTLE: (id) => `/groups/${id}/settle`,

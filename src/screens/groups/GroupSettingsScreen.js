@@ -1,173 +1,371 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Button from '../../components/buttons/Button';
 import InputField from '../../components/inputs/InputField';
 import Avatar from '../../components/ui/Avatar';
 import Header from '../../components/ui/Header';
+import ImagePickerField from '../../components/ui/ImagePickerField';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ScreenWrapper from '../../components/ui/ScreenWrapper';
 import { colors } from '../../constants/colors';
 import { useGroups } from '../../hooks/useGroups';
-;
+import { useAuthStore } from '../../store/authStore';
+
+const GROUP_STATUS = {
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED',
+};
 
 const GroupSettingsScreen = ({ route, navigation }) => {
   const { groupId } = route.params;
-  const { getGroupDetails, groupDetails, updateGroup, deleteGroup, isLoading } = useGroups();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const authUserId = useAuthStore((state) => state.user?.id);
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    status: GROUP_STATUS.ACTIVE,
+    image: null,
+  });
+  const [imageUpdated, setImageUpdated] = useState(false);
 
-  useEffect(() => {
-    getGroupDetails(groupId);
-  }, [groupId]);
+  const {
+    groupDetails,
+    isLoading,
+    isActionLoading,
+    getGroupDetails,
+    updateGroup,
+    uploadGroupImage,
+    deleteGroupImage,
+    archiveGroup,
+    leaveGroup,
+    deleteGroup,
+  } = useGroups();
 
-  useEffect(() => {
-    if (groupDetails) {
-      setName(groupDetails.name);
-      setDescription(groupDetails.description || '');
-    }
-  }, [groupDetails]);
+  useFocusEffect(
+    useCallback(() => {
+      const load = async () => {
+        const details = await getGroupDetails(groupId);
+        if (details) {
+          setForm({
+            name: details.name || '',
+            description: details.description || '',
+            status: details.status || GROUP_STATUS.ACTIVE,
+            image: details.image
+              ? {
+                  uri: details.image,
+                  type: 'image/jpeg',
+                  fileName: `group_${details.id || Date.now()}.jpg`,
+                }
+              : null,
+          });
+          setImageUpdated(false);
+        }
+      };
+      load().catch(() => Alert.alert('Error', 'Unable to load group settings.'));
+    }, [getGroupDetails, groupId])
+  );
 
-  const handleUpdate = async () => {
-    if (!name.trim()) {
-      Alert.alert('Error', 'Group name is required');
+  const members = groupDetails?.members || [];
+  const currentMember = members.find((member) => member.userId === authUserId || member.id === authUserId);
+  const isAdmin = Boolean(currentMember?.isAdmin || groupDetails?.isAdmin);
+
+  const isArchived = form.status === GROUP_STATUS.ARCHIVED;
+  const loading = isLoading || isActionLoading;
+
+  const canDelete = useMemo(() => isAdmin, [isAdmin]);
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      Alert.alert('Validation', 'Group name is required.');
       return;
     }
 
     try {
-      await updateGroup(groupId, { name, description });
-      Alert.alert('Success', 'Group updated successfully');
+      await updateGroup(groupId, {
+        name: form.name.trim(),
+        description: form.description.trim() || undefined,
+        status: form.status,
+      });
+
+      if (imageUpdated) {
+        if (form.image?.uri) {
+          await uploadGroupImage(groupId, form.image);
+        } else {
+          await deleteGroupImage(groupId);
+        }
+      }
+
+      Alert.alert('Success', 'Group settings updated.');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', error.message || 'Update failed');
+      Alert.alert('Error', error?.message || 'Failed to update group settings.');
     }
   };
 
-  const handleDelete = () => {
+  const handleArchiveToggle = async () => {
+    const nextArchived = !isArchived;
+    try {
+      await archiveGroup(groupId, nextArchived);
+      setForm((prev) => ({ ...prev, status: nextArchived ? GROUP_STATUS.ARCHIVED : GROUP_STATUS.ACTIVE }));
+      Alert.alert('Success', nextArchived ? 'Group archived.' : 'Group activated.');
+    } catch (error) {
+      Alert.alert('Error', error?.message || 'Unable to update group status.');
+    }
+  };
+
+  const handleLeaveGroup = () => {
     Alert.alert(
-      'Delete Group',
-      'Are you sure you want to delete this group? This action cannot be undone.',
+      'Leave Group',
+      'Do you want to leave this group?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Leave',
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteGroup(groupId);
-              Alert.alert('Success', 'Group deleted');
-              navigation.navigate('GroupsList');
+              await leaveGroup(groupId, authUserId);
+              navigation.navigate('Main', { screen: 'Groups' });
             } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to delete group');
+              Alert.alert('Error', error?.message || 'Unable to leave group.');
             }
-          }
+          },
         },
       ]
     );
   };
 
-  if (!groupDetails && !isLoading) return null;
+  const handleDeleteGroup = () => {
+    Alert.alert(
+      'Delete Group',
+      'Delete this group permanently? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteGroup(groupId);
+              navigation.navigate('Main', { screen: 'Groups' });
+            } catch (error) {
+              Alert.alert('Error', error?.message || 'Unable to delete group.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper backgroundColor="#F4F7FB">
       <Header title="Group Settings" showBack />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.avatarSection}>
-          <Avatar source={groupDetails?.avatar} name={groupDetails?.name} size={100} radius={50} />
-          <TouchableOpacity style={styles.editAvatarBtn}>
-            <Text style={styles.editAvatarText}>Change Icon</Text>
-          </TouchableOpacity>
+        <View style={styles.topCard}>
+          <View style={styles.avatarWrap}>
+            <Avatar source={form.image?.uri} name={form.name || groupDetails?.name} size={78} />
+          </View>
+          <Text style={styles.groupNamePreview}>{form.name || 'Group name'}</Text>
+          <Text style={styles.groupStatusPreview}>{isArchived ? 'Archived' : 'Active'}</Text>
         </View>
 
-        <InputField
-          label="Group Name"
-          value={name}
-          onChangeText={setName}
-          placeholder="Enter group name"
-        />
-        <InputField
-          label="Description"
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Enter group description"
-          multiline
-          numberOfLines={3}
-        />
+        <View style={styles.sectionCard}>
+          <ImagePickerField
+            label="Group Image"
+            value={form.image}
+            onChange={(image) => {
+              setForm((prev) => ({ ...prev, image }));
+              setImageUpdated(true);
+            }}
+          />
 
-        <Button 
-          title="Save Changes" 
-          onPress={handleUpdate} 
-          loading={isLoading} 
-          style={styles.saveBtn}
-        />
+          <InputField
+            label="Group Name"
+            value={form.name}
+            onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
+            placeholder="Enter group name"
+          />
 
-        <View style={styles.dangerSection}>
-          <Text style={styles.dangerTitle}>DANGER ZONE</Text>
-          <TouchableOpacity style={styles.dangerItem} onPress={handleDelete}>
-            <View style={styles.dangerIcon}>
-              <Icon name="delete-outline" size={24} color={colors.error} />
+          <InputField
+            label="Description"
+            value={form.description}
+            onChangeText={(description) => setForm((prev) => ({ ...prev, description }))}
+            placeholder="Group description"
+            multiline
+            numberOfLines={4}
+          />
+
+          <Text style={styles.statusLabel}>Status</Text>
+          <View style={styles.statusTabs}>
+            <TouchableOpacity
+              style={[styles.statusTab, !isArchived && styles.statusTabActive]}
+              onPress={() => setForm((prev) => ({ ...prev, status: GROUP_STATUS.ACTIVE }))}
+            >
+              <Text style={[styles.statusTabText, !isArchived && styles.statusTabTextActive]}>Active</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.statusTab, isArchived && styles.statusTabActive]}
+              onPress={() => setForm((prev) => ({ ...prev, status: GROUP_STATUS.ARCHIVED }))}
+            >
+              <Text style={[styles.statusTabText, isArchived && styles.statusTabTextActive]}>
+                Archived
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Button title="Save Changes" onPress={handleSave} />
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+
+          <TouchableOpacity style={styles.dangerRow} onPress={handleArchiveToggle}>
+            <View style={styles.dangerIconWrap}>
+              <Icon name={isArchived ? 'archive-arrow-up-outline' : 'archive-outline'} size={20} color="#B45309" />
             </View>
-            <Text style={styles.dangerText}>Delete Group</Text>
+            <View style={styles.dangerTextWrap}>
+              <Text style={styles.dangerTitle}>{isArchived ? 'Unarchive Group' : 'Archive Group'}</Text>
+              <Text style={styles.dangerSubTitle}>
+                {isArchived
+                  ? 'Move this group back to active groups.'
+                  : 'Hide this group from active tab.'}
+              </Text>
+            </View>
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.dangerRow} onPress={handleLeaveGroup}>
+            <View style={styles.dangerIconWrap}>
+              <Icon name="exit-to-app" size={20} color={colors.error} />
+            </View>
+            <View style={styles.dangerTextWrap}>
+              <Text style={styles.dangerTitle}>Leave Group</Text>
+              <Text style={styles.dangerSubTitle}>Remove yourself from this group.</Text>
+            </View>
+          </TouchableOpacity>
+
+          {canDelete && (
+            <TouchableOpacity style={styles.dangerRow} onPress={handleDeleteGroup}>
+              <View style={styles.dangerIconWrap}>
+                <Icon name="trash-can-outline" size={20} color={colors.error} />
+              </View>
+              <View style={styles.dangerTextWrap}>
+                <Text style={[styles.dangerTitle, { color: colors.error }]}>Delete Group</Text>
+                <Text style={styles.dangerSubTitle}>Delete this group and all references.</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
-      <LoadingOverlay visible={isLoading && !groupDetails} />
+      <LoadingOverlay visible={loading} />
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   content: {
-    padding: 24,
+    padding: 16,
+    paddingBottom: 36,
   },
-  avatarSection: {
+  topCard: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E7EEF6',
+    paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 12,
   },
-  editAvatarBtn: {
-    marginTop: 12,
+  avatarWrap: {
+    marginBottom: 8,
   },
-  editAvatarText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
+  groupNamePreview: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
   },
-  saveBtn: {
-    marginTop: 24,
-  },
-  dangerSection: {
-    marginTop: 40,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  dangerTitle: {
+  groupStatusPreview: {
+    marginTop: 4,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.error,
-    letterSpacing: 1,
-    marginBottom: 16,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
   },
-  dangerItem: {
+  sectionCard: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E7EEF6',
+    padding: 14,
+    marginBottom: 12,
+  },
+  statusLabel: {
+    marginTop: 6,
+    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  statusTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#E8EFF7',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 12,
+  },
+  statusTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  statusTabActive: {
+    backgroundColor: colors.white,
+  },
+  statusTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  statusTabTextActive: {
+    color: colors.primary,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#334155',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  dangerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#EDF2F8',
   },
-  dangerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FEE2E2',
+  dangerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 10,
   },
-  dangerText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.error,
+  dangerTextWrap: {
+    flex: 1,
+  },
+  dangerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  dangerSubTitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });
 

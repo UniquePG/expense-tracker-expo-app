@@ -3,7 +3,19 @@ import { View, StyleSheet } from 'react-native';
 import { TextInput, HelperText } from 'react-native-paper';
 import { colors } from '../../constants/colors';
 
-const InputField = ({ label, value, onChangeText, error, secureTextEntry, keyboardType, placeholder, leftIcon, rightIcon, onRightIconPress }) => {
+const InputField = ({
+  label,
+  value,
+  onChangeText,
+  error,
+  secureTextEntry,
+  keyboardType,
+  placeholder,
+  leftIcon,
+  rightIcon,
+  onRightIconPress,
+  ...rest
+}) => {
   return (
     <View style={styles.container}>
       <TextInput
@@ -20,6 +32,7 @@ const InputField = ({ label, value, onChangeText, error, secureTextEntry, keyboa
         style={styles.input}
         left={leftIcon ? <TextInput.Icon icon={leftIcon} color={colors.textSecondary} /> : null}
         right={rightIcon ? <TextInput.Icon icon={rightIcon} onPress={onRightIconPress} color={colors.textSecondary} /> : null}
+        {...rest}
       />
       {error && <HelperText type="error" visible={!!error}>{error}</HelperText>}
     </View>

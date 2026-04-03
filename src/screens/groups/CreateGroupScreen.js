@@ -1,253 +1,476 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { contactsApi } from '../../api';
 import Button from '../../components/buttons/Button';
-import InputField from '../../components/inputs/InputField';
+import SearchInput from '../../components/inputs/SearchInput';
 import Avatar from '../../components/ui/Avatar';
 import ImagePickerField from '../../components/ui/ImagePickerField';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ScreenWrapper from '../../components/ui/ScreenWrapper';
 import { colors } from '../../constants/colors';
 import { useFriends } from '../../hooks/useFriends';
 import { useGroups } from '../../hooks/useGroups';
-;
+import InputField from '../../components/inputs/InputField';
+
+const MEMBER_SOURCE = {
+  FRIEND: 'friend',
+  CONTACT: 'contact',
+};
+
+const normalizeFriend = (item) => {
+  const person = item?.friend || item?.user || item;
+  if (!person) return null;
+  const id = person.id ?? item?.friendId ?? item?.userId;
+  if (!id) return null;
+  const name =
+    person.name ||
+    [person.firstName, person.lastName].filter(Boolean).join(' ').trim() ||
+    person.email ||
+    'Friend';
+  return {
+    key: `${MEMBER_SOURCE.FRIEND}:${id}`,
+    id,
+    type: MEMBER_SOURCE.FRIEND,
+    name,
+    subtitle: person.email || 'Friend',
+    avatar: person.avatar || null,
+  };
+};
+
+const normalizeContact = (item) => {
+  const id = item?.id;
+  if (!id) return null;
+  return {
+    key: `${MEMBER_SOURCE.CONTACT}:${id}`,
+    id,
+    type: MEMBER_SOURCE.CONTACT,
+    name: item?.name || [item?.firstName, item?.lastName].filter(Boolean).join(' ').trim() || 'Contact',
+    subtitle: item?.email || item?.phoneNumber || item?.phone || 'Contact',
+    avatar: item?.avatar || null,
+  };
+};
+
+const extractList = (response, keys = []) => {
+  const root = response?.data ?? response;
+  if (Array.isArray(root)) return root;
+  for (const key of keys) {
+    if (Array.isArray(root?.[key])) return root[key];
+    if (Array.isArray(root?.data?.[key])) return root.data[key];
+  }
+  if (Array.isArray(root?.data)) return root.data;
+  return [];
+};
 
 const CreateGroupScreen = ({ navigation }) => {
-  const { createGroup, isLoading } = useGroups();
-  const { friends, fetchFriends } = useFriends();
+  const [step, setStep] = useState(1);
+  const [search, setSearch] = useState('');
+  const [activeSource, setActiveSource] = useState(MEMBER_SOURCE.FRIEND);
+  const [contacts, setContacts] = useState([]);
+  const [contactsLoaded, setContactsLoaded] = useState(false);
   const [form, setForm] = useState({
     name: '',
-    type: 'TRIP',
-    members: [],
-    avatar: null,
+    description: '',
+    image: null,
+    selectedMemberKeys: [],
   });
 
-  useEffect(() => {
-    fetchFriends();
-  }, []);
+  const { friends, fetchFriends } = useFriends();
+  const {
+    createGroup,
+    addGroupMembers,
+    uploadGroupImage,
+    isLoading,
+    isActionLoading,
+  } = useGroups();
 
-  const groupTypes = [
-    { id: 'TRIP', label: 'Trip', icon: 'airplane' },
-    { id: 'HOME', label: 'Home', icon: 'home' },
-    { id: 'COUPLE', label: 'Couple', icon: 'heart' },
-    { id: 'OTHER', label: 'Other', icon: 'dots-horizontal' },
-  ];
+  const loading = isLoading || isActionLoading;
 
-  const handleCreate = async () => {
-    if (!form.name) {
-      Alert.alert('Error', 'Please enter a group name');
-      return;
-    }
+  const friendOptions = useMemo(
+    () => (friends || []).map(normalizeFriend).filter(Boolean),
+    [friends]
+  );
 
+  const contactOptions = useMemo(
+    () => (contacts || []).map(normalizeContact).filter(Boolean),
+    [contacts]
+  );
+
+  const visibleMembers = useMemo(() => {
+    const sourceList = activeSource === MEMBER_SOURCE.FRIEND ? friendOptions : contactOptions;
+    const query = search.trim().toLowerCase();
+    if (!query) return sourceList;
+    return sourceList.filter((member) => member.name.toLowerCase().includes(query));
+  }, [activeSource, contactOptions, friendOptions, search]);
+
+  const selectedCount = form.selectedMemberKeys.length;
+
+  const loadContactsIfNeeded = async () => {
+    if (contactsLoaded) return;
     try {
-      await createGroup(form);
-      navigation.goBack();
+      const response = await contactsApi.getAll();
+      setContacts(extractList(response, ['contacts']));
+      setContactsLoaded(true);
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to create group');
+      Alert.alert('Error', error?.message || 'Failed to load contacts.');
     }
   };
 
-  const toggleMember = (friendId) => {
-    setForm(prev => {
-      const isSelected = prev.members.includes(friendId);
-      if (isSelected) {
-        return { ...prev, members: prev.members.filter(id => id !== friendId) };
-      } else {
-        return { ...prev, members: [...prev.members, friendId] };
+  const handleNext = async () => {
+    if (step === 1) {
+      if (!form.name.trim()) {
+        Alert.alert('Validation', 'Group name is required.');
+        return;
       }
+      setStep(2);
+      await fetchFriends();
+      return;
+    }
+  };
+
+  const toggleMember = (memberKey) => {
+    setForm((prev) => {
+      const selected = prev.selectedMemberKeys.includes(memberKey);
+      return {
+        ...prev,
+        selectedMemberKeys: selected
+          ? prev.selectedMemberKeys.filter((key) => key !== memberKey)
+          : [...prev.selectedMemberKeys, memberKey],
+      };
     });
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="close" size={28} color={colors.text} />
+  const handleCreate = async () => {
+    try {
+      const selectedFriends = form.selectedMemberKeys
+        .filter((key) => key.startsWith(`${MEMBER_SOURCE.FRIEND}:`))
+        .map((key) => key.split(':')[1]);
+      const selectedContacts = form.selectedMemberKeys
+        .filter((key) => key.startsWith(`${MEMBER_SOURCE.CONTACT}:`))
+        .map((key) => key.split(':')[1]);
+
+      const createdGroup = await createGroup({
+        name: form.name.trim(),
+        description: form.description.trim() || undefined,
+        memberIds: selectedFriends,
+      });
+
+      if (!createdGroup?.id) {
+        throw new Error('Group created but missing group id.');
+      }
+
+      if (selectedContacts.length) {
+        await addGroupMembers(
+          createdGroup.id,
+          selectedContacts.map((contactId) => ({ contactId }))
+        );
+      }
+
+      if (form.image?.uri) {
+        await uploadGroupImage(createdGroup.id, form.image);
+      }
+
+      navigation.replace('GroupDetails', {
+        groupId: createdGroup.id,
+        title: createdGroup.name,
+      });
+    } catch (error) {
+      Alert.alert('Error', error?.message || 'Failed to create group.');
+    }
+  };
+
+  const renderStepHeader = () => (
+    <View style={styles.stepHeader}>
+      <View style={[styles.stepPill, step === 1 && styles.stepPillActive]}>
+        <Text style={[styles.stepPillText, step === 1 && styles.stepPillTextActive]}>1. Info</Text>
+      </View>
+      <View style={styles.stepDivider} />
+      <View style={[styles.stepPill, step === 2 && styles.stepPillActive]}>
+        <Text style={[styles.stepPillText, step === 2 && styles.stepPillTextActive]}>
+          2. Members
+        </Text>
+      </View>
+    </View>
+  );
+
+  const renderStepOne = () => (
+    <View style={styles.stepBody}>
+      <Text style={styles.sectionTitle}>Group Info</Text>
+      <Text style={styles.sectionSubTitle}>Set a name, optional description and group photo.</Text>
+
+      <ImagePickerField
+        label="Group Image (Optional)"
+        value={form.image}
+        onChange={(image) => setForm((prev) => ({ ...prev, image }))}
+      />
+
+      <InputField
+        label="Group Name"
+        value={form.name}
+        onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
+        placeholder="e.g. Goa Trip 2026"
+      />
+
+      <InputField
+        label="Description (Optional)"
+        value={form.description}
+        onChangeText={(description) => setForm((prev) => ({ ...prev, description }))}
+        placeholder="What's this group for?"
+        multiline
+        numberOfLines={4}
+      />
+
+      <Button title="Next" onPress={handleNext} style={styles.primaryButton} />
+    </View>
+  );
+
+  const renderMemberItem = ({ item }) => {
+    const selected = form.selectedMemberKeys.includes(item.key);
+    return (
+      <TouchableOpacity style={styles.memberRow} onPress={() => toggleMember(item.key)}>
+        <Avatar source={item.avatar} name={item.name} size={42} />
+        <View style={styles.memberTextWrap}>
+          <Text style={styles.memberName}>{item.name}</Text>
+          <Text style={styles.memberSubtitle}>{item.subtitle}</Text>
+        </View>
+        <Icon
+          name={selected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+          size={24}
+          color={selected ? colors.primary : colors.textSecondary}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderStepTwo = () => (
+    <View style={styles.stepBody}>
+      <Text style={styles.sectionTitle}>Add Members</Text>
+      <Text style={styles.sectionSubTitle}>Select friends and contacts to include in the group.</Text>
+
+      <View style={styles.sourceTabs}>
+        <TouchableOpacity
+          style={[styles.sourceTab, activeSource === MEMBER_SOURCE.FRIEND && styles.sourceTabActive]}
+          onPress={() => setActiveSource(MEMBER_SOURCE.FRIEND)}
+        >
+          <Text
+            style={[
+              styles.sourceTabText,
+              activeSource === MEMBER_SOURCE.FRIEND && styles.sourceTabTextActive,
+            ]}
+          >
+            Friends
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Group</Text>
-        <TouchableOpacity onPress={handleCreate} disabled={isLoading}>
-          <Text style={styles.doneBtn}>Done</Text>
+        <TouchableOpacity
+          style={[styles.sourceTab, activeSource === MEMBER_SOURCE.CONTACT && styles.sourceTabActive]}
+          onPress={async () => {
+            setActiveSource(MEMBER_SOURCE.CONTACT);
+            await loadContactsIfNeeded();
+          }}
+        >
+          <Text
+            style={[
+              styles.sourceTabText,
+              activeSource === MEMBER_SOURCE.CONTACT && styles.sourceTabTextActive,
+            ]}
+          >
+            Contacts
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={styles.imageSection}>
-          <ImagePickerField 
-            value={form.avatar}
-            onChange={(uri) => setForm({...form, avatar: uri})}
-          />
-          <View style={styles.nameInputContainer}>
-            <Text style={styles.label}>Group Name</Text>
-            <InputField 
-              placeholder="e.g. Summer Trip 2024" 
-              value={form.name} 
-              onChangeText={(t) => setForm({...form, name: t})} 
-            />
-          </View>
-        </View>
+      <SearchInput value={search} onChangeText={setSearch} placeholder="Search members" />
 
-        <Text style={styles.sectionTitle}>Group Type</Text>
-        <View style={styles.typeGrid}>
-          {groupTypes.map((type) => (
-            <TouchableOpacity 
-              key={type.id} 
-              style={[
-                styles.typeCard, 
-                form.type === type.id && styles.activeTypeCard
-              ]}
-              onPress={() => setForm({...form, type: type.id})}
-            >
-              <Icon 
-                name={type.icon} 
-                size={24} 
-                color={form.type === type.id ? colors.white : colors.primary} 
-              />
-              <Text style={[
-                styles.typeLabel,
-                form.type === type.id && styles.activeTypeLabel
-              ]}>
-                {type.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      <FlatList
+        data={visibleMembers}
+        keyExtractor={(item) => item.key}
+        renderItem={renderMemberItem}
+        contentContainerStyle={styles.memberList}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>
+            {activeSource === MEMBER_SOURCE.FRIEND
+              ? 'No friends found. Add friends first.'
+              : 'No contacts found. Add contacts first.'}
+          </Text>
+        }
+      />
 
-        <Text style={styles.sectionTitle}>Select Members</Text>
-        <View style={styles.memberList}>
-          {friends.map((friend) => (
-            <TouchableOpacity 
-              key={friend.id} 
-              style={styles.memberItem}
-              onPress={() => toggleMember(friend.id)}
-            >
-              <Avatar source={friend.avatar} name={friend.name} size={40} radius={12} />
-              <Text style={styles.memberName}>{friend.name}</Text>
-              <Icon 
-                name={form.members.includes(friend.id) ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} 
-                size={24} 
-                color={form.members.includes(friend.id) ? colors.primary : colors.textSecondary} 
-              />
-            </TouchableOpacity>
-          ))}
-          {friends.length === 0 && (
-            <Text style={styles.emptyText}>No friends to add. Add friends first!</Text>
-          )}
-        </View>
-
-        <Button 
-          title="Create Group" 
-          style={styles.createBtn} 
-          onPress={handleCreate} 
-          loading={isLoading}
+      <View style={styles.actionsRow}>
+        <Button title="Back" mode="outlined" onPress={() => setStep(1)} style={styles.actionButton} />
+        <Button
+          title={`Create Group (${selectedCount})`}
+          onPress={handleCreate}
+          style={styles.actionButton}
         />
-      </ScrollView>
-      <LoadingOverlay visible={isLoading} />
+      </View>
     </View>
+  );
+
+  return (
+    <ScreenWrapper backgroundColor="#F5F8FC">
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+          <Icon name="arrow-left" size={22} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Group</Text>
+        <View style={styles.headerIconButton} />
+      </View>
+
+      {renderStepHeader()}
+      {step === 1 ? renderStepOne() : renderStepTwo()}
+
+      <LoadingOverlay visible={loading} />
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  doneBtn: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  content: {
-    padding: 24,
-  },
-  imageSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  nameInputContainer: {
-    flex: 1,
-    marginLeft: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  typeGrid: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 32,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  typeCard: {
-    width: '23%',
-    height: 80,
-    backgroundColor: colors.white,
-    borderRadius: 16,
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#EAF0F7',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  activeTypeCard: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
   },
-  typeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: 8,
-  },
-  activeTypeLabel: {
-    color: colors.white,
-  },
-  memberList: {
-    marginBottom: 40,
-  },
-  memberItem: {
+  stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+  },
+  stepPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: '#E7EEF6',
+  },
+  stepPillActive: {
+    backgroundColor: colors.primary,
+  },
+  stepPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  stepPillTextActive: {
+    color: colors.white,
+  },
+  stepDivider: {
+    width: 28,
+    height: 1,
+    backgroundColor: '#BFCBDA',
+    marginHorizontal: 8,
+  },
+  stepBody: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  sectionSubTitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
     marginBottom: 16,
+  },
+  primaryButton: {
+    marginTop: 8,
+  },
+  sourceTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#E8EFF7',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 12,
+  },
+  sourceTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  sourceTabActive: {
     backgroundColor: colors.white,
-    padding: 12,
-    borderRadius: 16,
+  },
+  sourceTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  sourceTabTextActive: {
+    color: colors.primary,
+  },
+  memberList: {
+    paddingTop: 10,
+    paddingBottom: 16,
+    flexGrow: 1,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E6ECF4',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  memberTextWrap: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 8,
   },
   memberName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.text,
-    marginLeft: 12,
+  },
+  memberSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   emptyText: {
     textAlign: 'center',
+    marginTop: 24,
     color: colors.textSecondary,
-    marginTop: 20,
+    fontSize: 13,
   },
-  createBtn: {
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 60,
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  actionButton: {
+    flex: 1,
+    marginHorizontal: 4,
   },
 });
 

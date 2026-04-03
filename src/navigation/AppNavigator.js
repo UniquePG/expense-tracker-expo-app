@@ -26,6 +26,7 @@ import FriendProfileScreen from '../screens/friends/FriendProfileScreen';
 import FriendRequestsScreen from '../screens/friends/FriendRequestsScreen';
 import FriendsListScreen from '../screens/friends/FriendsListScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
+import GroupDetailsScreen from '../screens/groups/GroupDetailsScreen';
 import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
 import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
 import GroupsListScreen from '../screens/groups/GroupsListScreen';
@@ -74,7 +75,7 @@ const AppNavigator = () => {
             <Stack.Screen name="SplitWizard" component={SplitWizardScreen} />
             
             {/* Groups */}
-            {/* <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} /> */}
+            <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} />
             <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
             <Stack.Screen name="GroupMembers" component={GroupMembersScreen} />
             <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} />
