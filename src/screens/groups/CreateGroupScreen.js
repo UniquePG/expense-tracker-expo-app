@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -122,6 +123,17 @@ const CreateGroupScreen = ({ navigation }) => {
       Alert.alert('Error', error?.message || 'Failed to load contacts.');
     }
   };
+
+  // When screen re-focuses (e.g. returning from AddFriendOrContact), reload friends & contacts
+  useFocusEffect(
+    useCallback(() => {
+      if (step === 2) {
+        fetchFriends();
+        // Force contacts reload on next tab switch
+        setContactsLoaded(false);
+      }
+    }, [step])
+  );
 
   const handleNext = async () => {
     if (step === 1) {
@@ -288,6 +300,15 @@ const CreateGroupScreen = ({ navigation }) => {
 
       <SearchInput value={search} onChangeText={setSearch} placeholder="Search members" />
 
+      {/* Quick add shortcut */}
+      <TouchableOpacity
+        style={styles.addNewLink}
+        onPress={() => navigation.navigate('AddFriendOrContact', { returnTo: 'CreateGroup' })}
+      >
+        <Icon name="account-plus-outline" size={16} color={colors.primary} />
+        <Text style={styles.addNewLinkText}>Add New Friend or Contact</Text>
+      </TouchableOpacity>
+
       <FlatList
         data={visibleMembers}
         keyExtractor={(item) => item.key}
@@ -296,8 +317,8 @@ const CreateGroupScreen = ({ navigation }) => {
         ListEmptyComponent={
           <Text style={styles.emptyText}>
             {activeSource === MEMBER_SOURCE.FRIEND
-              ? 'No friends found. Add friends first.'
-              : 'No contacts found. Add contacts first.'}
+              ? 'No friends found. Tap above to add a friend.'
+              : 'No contacts found. Tap above to add a contact.'}
           </Text>
         }
       />
@@ -462,6 +483,19 @@ const styles = StyleSheet.create({
     marginTop: 24,
     color: colors.textSecondary,
     fontSize: 13,
+  },
+  addNewLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  addNewLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   actionsRow: {
     flexDirection: 'row',

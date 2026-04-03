@@ -22,9 +22,11 @@ import AccountsListScreen from '../screens/dashboard/AccountsListScreen';
 import AddAccountScreen from '../screens/dashboard/AddAccountScreen';
 import EditAccountScreen from '../screens/dashboard/EditAccountScreen';
 import AddFriendScreen from '../screens/friends/AddFriendScreen';
+import ContactDetailScreen from '../screens/friends/ContactDetailScreen';
 import FriendProfileScreen from '../screens/friends/FriendProfileScreen';
 import FriendRequestsScreen from '../screens/friends/FriendRequestsScreen';
 import FriendsListScreen from '../screens/friends/FriendsListScreen';
+import FriendsScreen from '../screens/friends/FriendsScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
 import GroupDetailsScreen from '../screens/groups/GroupDetailsScreen';
 import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
@@ -82,8 +84,11 @@ const AppNavigator = () => {
             <Stack.Screen name="GroupsList" component={GroupsListScreen} />
             
             {/* Friends */}
+            <Stack.Screen name="Friends" component={FriendsScreen} />
             <Stack.Screen name="FriendsList" component={FriendsListScreen} />
             <Stack.Screen name="AddFriend" component={AddFriendScreen} />
+            <Stack.Screen name="AddFriendOrContact" component={AddFriendScreen} />
+            <Stack.Screen name="ContactDetail" component={ContactDetailScreen} />
             <Stack.Screen name="FriendRequests" component={FriendRequestsScreen} />
             <Stack.Screen name="FriendProfile" component={FriendProfileScreen} />
             

@@ -42,6 +42,10 @@ export const friendsApi = {
     const response = await axiosClient.get(ENDPOINTS.FRIENDS.BALANCES);
     return response;
   },
+  blockFriend: async (id) => {
+    const response = await axiosClient.post(ENDPOINTS.FRIENDS.BLOCK(id));
+    return response;
+  },
 };
 
 export default friendsApi;

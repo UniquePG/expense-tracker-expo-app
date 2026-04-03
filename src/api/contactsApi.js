@@ -22,8 +22,12 @@ export const contactsApi = {
     const response = await axiosClient.delete(ENDPOINTS.CONTACTS.ID(id));
     return response;
   },
-  link: async (id, userId) => {
-    const response = await axiosClient.post(ENDPOINTS.CONTACTS.LINK(id), { userId });
+  link: async (id, linkedUserId) => {
+    const response = await axiosClient.post(ENDPOINTS.CONTACTS.LINK(id), { linkedUserId });
+    return response;
+  },
+  search: async (q) => {
+    const response = await axiosClient.get(`${ENDPOINTS.CONTACTS.BASE}/search`, { params: { q } });
     return response;
   },
 };

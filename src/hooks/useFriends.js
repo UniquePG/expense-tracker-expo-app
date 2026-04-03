@@ -1,25 +1,27 @@
-import { useEffect } from 'react';
 import { useFriendsStore } from '../store/friendsStore';
 
 export const useFriends = () => {
-  const { friends, balances, pendingRequests, isLoading, error, fetchFriends, fetchBalances, fetchPendingRequests, sendFriendRequest } = useFriendsStore();
-
-  useEffect(() => {
-    fetchFriends();
-    fetchBalances();
-    fetchPendingRequests();
-  }, []);
+  const store = useFriendsStore();
 
   return {
-    friends,
-    balances,
-    pendingRequests,
-    isLoading,
-    error,
-    fetchFriends,
-    fetchBalances,
-    fetchPendingRequests,
-    sendFriendRequest,
+    friends: store.friends,
+    balances: store.balances,
+    pendingRequests: store.pendingRequests,
+    requests: store.requests,
+    friendDetails: store.friendDetails,
+    isLoading: store.isLoading,
+    error: store.error,
+
+    fetchFriends: store.fetchFriends,
+    fetchBalances: store.fetchBalances,
+    fetchPendingRequests: store.fetchPendingRequests,
+    fetchRequests: store.fetchRequests,
+    sendFriendRequest: store.sendFriendRequest,
+    acceptFriendRequest: store.acceptFriendRequest,
+    rejectFriendRequest: store.rejectFriendRequest,
+    removeFriend: store.removeFriend,
+    getFriendDetails: store.getFriendDetails,
+    blockFriend: store.blockFriend,
   };
 };
 

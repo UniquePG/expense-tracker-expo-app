@@ -52,6 +52,7 @@ export const ENDPOINTS = {
     ACCEPT: (id) => `/friends/requests/${id}/accept`,
     REJECT: (id) => `/friends/requests/${id}/reject`,
     DETAILS: (id) => `/friends/${id}`,
+    BLOCK: (id) => `/friends/${id}/block`,
   },
   CONTACTS: {
     BASE: '/contacts',

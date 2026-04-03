@@ -105,6 +105,13 @@ const GroupMembersScreen = ({ route, navigation }) => {
         ]);
       };
       load().catch(() => Alert.alert('Error', 'Unable to load group members.'));
+
+      // If returning from AddFriendOrContact, force reload candidates
+      if (addingMembers) {
+        fetchFriends();
+        setContactsLoaded(false);
+        setContacts([]);
+      }
     }, [fetchGroupBalances, fetchGroupMembers, getGroupDetails, groupId])
   );
 
@@ -353,13 +360,25 @@ const GroupMembersScreen = ({ route, navigation }) => {
             </View>
 
             <SearchInput value={search} onChangeText={setSearch} placeholder="Search members" />
+
+            {/* Quick add shortcut */}
+            <TouchableOpacity
+              style={styles.addNewLink}
+              onPress={() =>
+                navigation.navigate('AddFriendOrContact', { returnTo: 'GroupMembers' })
+              }
+            >
+              <Icon name="account-plus-outline" size={15} color={colors.primary} />
+              <Text style={styles.addNewLinkText}>Add New Friend or Contact</Text>
+            </TouchableOpacity>
+
             <FlatList
               data={visibleCandidates}
               keyExtractor={(item) => item.key}
               renderItem={renderCandidate}
               style={styles.candidatesList}
               ListEmptyComponent={
-                <Text style={styles.emptySectionText}>No available members to add.</Text>
+                <Text style={styles.emptySectionText}>No available members. Tap above to add.</Text>
               }
             />
 
@@ -443,7 +462,21 @@ const styles = StyleSheet.create({
   },
   candidatesList: {
     maxHeight: 230,
-    marginTop: 10,
+    marginTop: 4,
+  },
+  addNewLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  addNewLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   candidateRow: {
     flexDirection: 'row',
